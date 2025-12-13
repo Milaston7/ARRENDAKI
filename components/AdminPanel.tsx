@@ -65,7 +65,10 @@ import {
   FileSpreadsheet,
   PieChart,
   ArrowRightLeft,
-  CreditCard
+  CreditCard,
+  ZoomIn,
+  Tag,
+  Hash
 } from 'lucide-react';
 
 // --- ACL CONFIGURATION ---
@@ -538,10 +541,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
       alert(`A iniciar chat seguro com ${user.name}... (Simulação)`);
   };
 
-  const handleDownloadContract = (contractId: string) => {
-      alert(`A transferir contrato ${contractId}... (Simulação de PDF)`);
-  };
-
   const handleDeletePost = (id: string) => {
     triggerCriticalAction(
         'Eliminar Artigo', 
@@ -629,6 +628,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
           },
           'info'
       );
+  };
+
+  const handleDownloadContract = (contractId: string) => {
+      alert(`A transferir contrato ${contractId}... (Simulação de PDF)`);
   };
 
   // Blog File Handlers
@@ -1149,315 +1152,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
       );
   };
 
-  const renderContracts = () => {
-    return (
-        <div className="space-y-6 animate-fadeIn">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-800">Gestão de Contratos</h3>
-                <div className="flex space-x-2">
-                    <input 
-                        type="text" 
-                        placeholder="Pesquisar contrato..." 
-                        className="p-2 border border-gray-300 rounded-lg text-sm"
-                        value={contractFilters.search}
-                        onChange={e => setContractFilters({...contractFilters, search: e.target.value})}
-                    />
-                    <select 
-                        className="p-2 border border-gray-300 rounded-lg text-sm bg-white"
-                        value={contractFilters.status}
-                        onChange={e => setContractFilters({...contractFilters, status: e.target.value as any})}
-                    >
-                        <option value="all">Todos</option>
-                        <option value="active">Ativos</option>
-                        <option value="pending_signature">Pendentes</option>
-                        <option value="terminated">Terminados</option>
-                    </select>
-                </div>
-            </div>
-
-            <div className="space-y-4">
-                {contracts
-                    .filter(c => contractFilters.status === 'all' || c.status === contractFilters.status)
-                    .map(contract => (
-                    <div key={contract.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                            <div>
-                                <div className="flex items-center mb-1">
-                                    <h4 className="font-bold text-gray-900 text-lg mr-2">{contract.propertyTitle}</h4>
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                                        contract.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
-                                        contract.status === 'pending_signature' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                        'bg-gray-50 text-gray-600 border-gray-200'
-                                    }`}>
-                                        {contract.status === 'active' ? 'Vigente' : contract.status === 'pending_signature' ? 'Aguarda Assinatura' : 'Terminado'}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-500 mb-1">
-                                    Proprietário: <span className="font-medium text-gray-700">{contract.ownerName}</span> • 
-                                    Inquilino: <span className="font-medium text-gray-700">{contract.tenantName}</span>
-                                </p>
-                                <p className="text-xs text-gray-400">ID: {contract.id} • De {contract.startDate} a {contract.endDate || 'Indefinido'}</p>
-                            </div>
-                            <div className="flex items-center space-x-2 mt-4 md:mt-0">
-                                <button 
-                                    onClick={() => handleDownloadContract(contract.id)}
-                                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg border border-gray-200"
-                                    title="Baixar PDF"
-                                >
-                                    <Download className="w-4 h-4" />
-                                </button>
-                                {contract.status === 'active' && (
-                                    <>
-                                        <button 
-                                            onClick={() => handleContractAction(contract.id, 'renew')}
-                                            className="px-3 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-xs font-bold hover:bg-blue-100"
-                                        >
-                                            Renovar
-                                        </button>
-                                        <button 
-                                            onClick={() => handleContractAction(contract.id, 'terminate')}
-                                            className="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100"
-                                        >
-                                            Terminar
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                {contracts.length === 0 && <div className="text-center py-10 text-gray-500">Nenhum contrato encontrado.</div>}
-            </div>
-        </div>
-    );
-  };
-
-  const renderChatAuditModal = () => {
-      if (!viewingChatLog) return null;
-      
-      // Mock conversation context based on snippet
-      const mockContext = [
-          { sender: viewingChatLog.participants[0], text: "Olá, bom dia. O imóvel ainda está disponível?", time: "10:25" },
-          { sender: viewingChatLog.participants[1], text: "Sim, está. Pode vir visitar amanhã.", time: "10:28" },
-          { sender: viewingChatLog.participants[0], text: viewingChatLog.snippet, time: "10:30", isFlagged: true },
-          { sender: viewingChatLog.participants[1], text: "Ok, ligo já.", time: "10:31" }
-      ];
-
-      return (
-          <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh]">
-                  <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                      <div>
-                          <h3 className="font-bold text-gray-800 flex items-center">
-                              <ShieldAlert className="w-5 h-5 mr-2 text-red-600" />
-                              Auditoria de Conversa
-                          </h3>
-                          <p className="text-xs text-gray-500">ID: {viewingChatLog.id} • {viewingChatLog.timestamp}</p>
-                      </div>
-                      <button onClick={() => setViewingChatLog(null)} className="text-gray-400 hover:text-gray-600">
-                          <X className="w-6 h-6" />
-                      </button>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-6 bg-gray-100 space-y-4">
-                      {mockContext.map((msg, idx) => (
-                          <div key={idx} className={`flex flex-col ${msg.sender === viewingChatLog.participants[0] ? 'items-end' : 'items-start'}`}>
-                              <span className="text-xs text-gray-500 mb-1">{msg.sender} • {msg.time}</span>
-                              <div className={`p-3 rounded-lg max-w-[80%] text-sm ${
-                                  msg.isFlagged 
-                                  ? 'bg-red-100 border-2 border-red-500 text-red-900' 
-                                  : 'bg-white border border-gray-200 text-gray-800'
-                              }`}>
-                                  {msg.text}
-                                  {msg.isFlagged && (
-                                      <div className="mt-2 pt-2 border-t border-red-200 text-xs font-bold flex items-center">
-                                          <AlertTriangle className="w-3 h-3 mr-1" />
-                                          Detetado: {viewingChatLog.reason === 'phone_sharing' ? 'Partilha de Contacto' : 'Linguagem Ofensiva'}
-                                      </div>
-                                  )}
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-
-                  <div className="p-4 bg-white border-t border-gray-200">
-                      <h4 className="text-sm font-bold text-gray-700 mb-3">Ações de Moderação</h4>
-                      <div className="flex space-x-3">
-                          <button 
-                              onClick={() => handleResolveAudit(viewingChatLog.id, 'false_positive')}
-                              className="flex-1 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50"
-                          >
-                              Falso Positivo (Ignorar)
-                          </button>
-                          <button 
-                              onClick={() => handleResolveAudit(viewingChatLog.id, 'confirm_violation')}
-                              className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 shadow-sm"
-                          >
-                              Confirmar Violação
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      );
-  };
-
-  const renderCommunications = () => (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
-          {/* Compose Section */}
-          <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center mb-6">
-                      <div className="bg-brand-100 p-2 rounded-lg mr-3">
-                          <Megaphone className="w-6 h-6 text-brand-600" />
-                      </div>
-                      <div>
-                          <h3 className="text-lg font-bold text-gray-900">Nova Notificação Push</h3>
-                          <p className="text-sm text-gray-500">Envie alertas, atualizações ou promoções para a app móvel.</p>
-                      </div>
-                  </div>
-
-                  <div className="space-y-4">
-                      <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
-                          <input 
-                              type="text" 
-                              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500"
-                              placeholder="Ex: Nova funcionalidade disponível"
-                              value={notifForm.title}
-                              onChange={e => setNotifForm({...notifForm, title: e.target.value})}
-                          />
-                      </div>
-                      
-                      <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem</label>
-                          <textarea 
-                              className="w-full p-2 border border-gray-300 rounded-lg h-24 focus:ring-brand-500 focus:border-brand-500"
-                              placeholder="Escreva a sua mensagem aqui (máx 150 caracteres)..."
-                              maxLength={150}
-                              value={notifForm.message}
-                              onChange={e => setNotifForm({...notifForm, message: e.target.value})}
-                          ></textarea>
-                          <div className="text-right text-xs text-gray-400 mt-1">{notifForm.message.length}/150</div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Público Alvo</label>
-                              <select 
-                                  className="w-full p-2 border border-gray-300 rounded-lg bg-white"
-                                  value={notifForm.target}
-                                  onChange={e => setNotifForm({...notifForm, target: e.target.value as any})}
-                              >
-                                  <option value="all">Todos os Utilizadores</option>
-                                  <option value="tenant">Apenas Inquilinos</option>
-                                  <option value="owner">Apenas Proprietários</option>
-                                  <option value="broker">Apenas Corretores</option>
-                              </select>
-                          </div>
-                          <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Alerta</label>
-                              <div className="flex space-x-2">
-                                  <button 
-                                      onClick={() => setNotifForm({...notifForm, type: 'info'})}
-                                      className={`flex-1 py-2 rounded-lg text-sm font-medium border ${notifForm.type === 'info' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-gray-200 text-gray-600'}`}
-                                  >
-                                      Info
-                                  </button>
-                                  <button 
-                                      onClick={() => setNotifForm({...notifForm, type: 'warning'})}
-                                      className={`flex-1 py-2 rounded-lg text-sm font-medium border ${notifForm.type === 'warning' ? 'bg-yellow-50 border-yellow-500 text-yellow-700' : 'border-gray-200 text-gray-600'}`}
-                                  >
-                                      Alerta
-                                  </button>
-                                  <button 
-                                      onClick={() => setNotifForm({...notifForm, type: 'promo'})}
-                                      className={`flex-1 py-2 rounded-lg text-sm font-medium border ${notifForm.type === 'promo' ? 'bg-purple-50 border-purple-500 text-purple-700' : 'border-gray-200 text-gray-600'}`}
-                                  >
-                                      Promo
-                                  </button>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="pt-4 flex justify-end">
-                          <button 
-                              onClick={handleSendPushNotification}
-                              className="bg-brand-600 hover:bg-brand-700 text-white px-6 py-2 rounded-lg font-bold flex items-center shadow-md transition-all hover:scale-105"
-                          >
-                              <Send className="w-4 h-4 mr-2" /> Enviar Notificação
-                          </button>
-                      </div>
-                  </div>
-              </div>
-
-              {/* Mobile Preview */}
-              <div className="bg-gray-100 rounded-xl p-6 flex justify-center items-center border border-gray-200">
-                  <div className="bg-white border-8 border-gray-800 rounded-[2rem] h-[300px] w-[280px] shadow-2xl overflow-hidden relative flex flex-col">
-                      <div className="bg-gray-800 h-6 w-full absolute top-0 left-0 z-10 flex justify-center">
-                          <div className="h-3 w-20 bg-black rounded-b-lg"></div>
-                      </div>
-                      
-                      {/* Wallpaper */}
-                      <div className="flex-1 bg-gradient-to-br from-blue-400 to-purple-500 p-4 pt-10">
-                          {/* Notification Card */}
-                          <div className="bg-white/90 backdrop-blur-md rounded-xl p-3 shadow-lg animate-fadeIn mt-2">
-                              <div className="flex justify-between items-start mb-1">
-                                  <div className="flex items-center">
-                                      <div className="bg-brand-500 rounded-md p-1 mr-2">
-                                          <Home className="w-3 h-3 text-white" />
-                                      </div>
-                                      <span className="text-[10px] font-bold text-gray-700 uppercase">ARRENDAKI</span>
-                                  </div>
-                                  <span className="text-[10px] text-gray-500">Agora</span>
-                              </div>
-                              <h4 className="font-bold text-sm text-gray-900 leading-tight">{notifForm.title || 'Título da Notificação'}</h4>
-                              <p className="text-xs text-gray-600 mt-1 leading-snug">{notifForm.message || 'O conteúdo da sua mensagem aparecerá aqui...'}</p>
-                          </div>
-                      </div>
-                  </div>
-                  <div className="ml-8 text-gray-500 text-sm max-w-xs">
-                      <h4 className="font-bold text-gray-700 mb-2">Pré-visualização</h4>
-                      <p>É assim que a notificação aparecerá no ecrã bloqueado dos utilizadores.</p>
-                  </div>
-              </div>
-          </div>
-
-          {/* History Section */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-              <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                  <h3 className="font-bold text-gray-700">Histórico de Envios</h3>
-                  <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">{notificationHistory.length}</span>
-              </div>
-              <div className="overflow-y-auto flex-1 p-2 space-y-2 max-h-[600px]">
-                  {notificationHistory.map(notif => (
-                      <div key={notif.id} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
-                          <div className="flex justify-between items-start mb-1">
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                                  notif.type === 'info' ? 'bg-blue-100 text-blue-700' :
-                                  notif.type === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'
-                              }`}>
-                                  {notif.type}
-                              </span>
-                              <span className="text-[10px] text-gray-400">{notif.date}</span>
-                          </div>
-                          <h4 className="font-bold text-sm text-gray-800 mb-1">{notif.title}</h4>
-                          <p className="text-xs text-gray-500 line-clamp-2 mb-2">{notif.message}</p>
-                          <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-100">
-                              <span className="flex items-center text-gray-600">
-                                  <Users className="w-3 h-3 mr-1" /> {notif.target}
-                              </span>
-                              <span className="flex items-center text-green-600 font-bold">
-                                  <CheckCircle className="w-3 h-3 mr-1" /> Enviado
-                              </span>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      </div>
-  );
-
   const renderSecurity = () => {
     // Sub-tabs for security are 'verify' and 'audits' (derived from activeSubTab logic or just tabs here)
     const [securityTab, setSecurityTab] = useState<'verify' | 'audits'>('verify');
@@ -1465,6 +1159,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
     const pendingVerifications = verificationQueue.filter(v => v.status !== 'approved' && v.status !== 'rejected').length;
     const verifiedUsersCount = usersList.filter(u => u.isIdentityVerified).length;
     const activeThreats = auditChats.length;
+
+    // Quick Action Reasons
+    const rejectionReasons = ["Foto Ilegível", "Documento Expirado", "Dados não coincidem", "Falta Verso"];
+    const reviewReasons = ["Confirmar com Supervisor", "Suspeita de Fraude", "Requer Contacto Telefónico"];
 
     return (
         <div className="space-y-6 animate-fadeIn">
@@ -1521,43 +1219,46 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
 
             {securityTab === 'verify' && hasPermission('manage_verification') && (
                 <div className="space-y-4">
-                     {/* Split View: List | Details */}
-                     <div className="flex flex-col lg:flex-row gap-6">
-                        {/* List */}
-                        <div className={`flex-1 space-y-3 ${inspectingRequest ? 'hidden lg:block' : ''}`}>
+                     {/* Split View: Queue List (Left) | Inspector (Right) */}
+                     <div className="flex flex-col lg:flex-row gap-6 h-[600px]">
+                        {/* List - Scrollable */}
+                        <div className={`flex-1 space-y-3 overflow-y-auto pr-2 ${inspectingRequest ? 'hidden lg:block' : ''}`}>
                              {pendingVerifications === 0 && (
                                  <div className="text-center py-12 bg-gray-50 rounded-xl border-dashed border-gray-300 border-2">
                                      <CheckCircle className="w-12 h-12 text-green-300 mx-auto mb-2" />
                                      <p className="text-gray-500 font-medium">Tudo limpo! Nenhuma verificação pendente.</p>
                                  </div>
                              )}
-                             {verificationQueue.filter(v => v.status !== 'approved' && v.status !== 'rejected').map(req => {
+                             {verificationQueue
+                                .filter(v => v.status !== 'approved' && v.status !== 'rejected')
+                                .sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+                                .map(req => {
                                  const userDetails = usersList.find(u => u.id === req.userId);
                                  return (
                                      <div 
                                         key={req.id} 
                                         onClick={() => setInspectingRequest(req)}
-                                        className={`bg-white p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${inspectingRequest?.id === req.id ? 'border-brand-500 ring-1 ring-brand-500' : 'border-gray-200'}`}
+                                        className={`bg-white p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${inspectingRequest?.id === req.id ? 'border-brand-500 ring-2 ring-brand-100 bg-brand-50' : 'border-gray-200'}`}
                                      >
                                          <div className="flex justify-between items-start mb-2">
                                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase flex items-center ${req.type === 'identity' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                                  {req.type === 'identity' ? <Fingerprint className="w-3 h-3 mr-1"/> : <Home className="w-3 h-3 mr-1"/>}
                                                  {req.type === 'identity' ? 'Identidade' : 'Propriedade'}
                                              </span>
-                                             <span className="text-xs text-gray-400">{req.submittedAt}</span>
+                                             <span className="text-[10px] text-gray-400 font-mono">{req.submittedAt}</span>
                                          </div>
                                          <div className="flex items-center mt-2">
                                              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3 text-xs font-bold text-gray-600">
                                                  {userDetails?.name.charAt(0) || '?'}
                                              </div>
-                                             <div>
-                                                 <p className="text-sm font-bold text-gray-900">{userDetails?.name || req.userId}</p>
-                                                 <p className="text-xs text-gray-500">{userDetails?.email}</p>
+                                             <div className="overflow-hidden">
+                                                 <p className="text-sm font-bold text-gray-900 truncate">{userDetails?.name || req.userId}</p>
+                                                 <p className="text-xs text-gray-500 truncate">{userDetails?.email}</p>
                                              </div>
                                          </div>
                                          {req.status === 'review_needed' && (
-                                             <div className="mt-2 bg-yellow-50 text-yellow-700 text-xs p-2 rounded">
-                                                 ⚠ Pendente de Revisão
+                                             <div className="mt-2 bg-yellow-50 text-yellow-700 text-xs p-2 rounded border border-yellow-200 flex items-center">
+                                                 <AlertTriangle className="w-3 h-3 mr-1" /> Em Revisão
                                              </div>
                                          )}
                                      </div>
@@ -1565,25 +1266,56 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
                              })}
                         </div>
                         
-                        {/* Inspector Panel */}
-                        {inspectingRequest && (
-                            <div className="flex-[1.5] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex flex-col max-h-[80vh]">
+                        {/* Inspector Panel - Fixed Height */}
+                        {inspectingRequest ? (
+                            <div className="flex-[1.5] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex flex-col h-full">
                                 <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                                     <div>
                                         <h3 className="font-bold text-gray-800">Inspecionar Documento</h3>
-                                        <p className="text-xs text-gray-500">ID: {inspectingRequest.id}</p>
+                                        <p className="text-xs text-gray-500">ID: {inspectingRequest.id} • {inspectingRequest.type === 'identity' ? 'BI/Passaporte' : 'Título de Propriedade'}</p>
                                     </div>
-                                    <button onClick={() => setInspectingRequest(null)} className="lg:hidden text-gray-500"><X className="w-6 h-6"/></button>
+                                    <button onClick={() => setInspectingRequest(null)} className="text-gray-400 hover:text-gray-600"><X className="w-6 h-6"/></button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-4 bg-gray-900 flex items-center justify-center relative group">
-                                    <img src={inspectingRequest.documentUrl} className="max-w-full max-h-full object-contain shadow-sm" alt="Documento" />
-                                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                        Zoom Disponível
+                                
+                                <div className="flex-1 overflow-y-auto bg-gray-900 relative group flex items-center justify-center">
+                                    <img 
+                                        src={inspectingRequest.documentUrl} 
+                                        className="max-w-full max-h-full object-contain shadow-lg" 
+                                        alt="Documento" 
+                                    />
+                                    <div className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full backdrop-blur-sm">
+                                        <ZoomIn className="w-5 h-5" />
                                     </div>
                                 </div>
-                                <div className="p-4 bg-white border-t border-gray-200 space-y-3">
+
+                                <div className="p-4 bg-white border-t border-gray-200 space-y-4">
+                                    {/* Quick Actions Tags */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nota da Ação</label>
+                                        <p className="text-xs font-bold text-gray-500 uppercase mb-2">Motivos Rápidos</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {rejectionReasons.map(reason => (
+                                                <button 
+                                                    key={reason}
+                                                    onClick={() => setVerificationActionNote(reason)}
+                                                    className="px-2 py-1 bg-red-50 text-red-600 border border-red-100 rounded text-xs hover:bg-red-100 transition-colors flex items-center"
+                                                >
+                                                    <Tag className="w-3 h-3 mr-1" /> {reason}
+                                                </button>
+                                            ))}
+                                            {reviewReasons.map(reason => (
+                                                <button 
+                                                    key={reason}
+                                                    onClick={() => setVerificationActionNote(reason)}
+                                                    className="px-2 py-1 bg-yellow-50 text-yellow-700 border border-yellow-100 rounded text-xs hover:bg-yellow-100 transition-colors flex items-center"
+                                                >
+                                                    <Tag className="w-3 h-3 mr-1" /> {reason}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nota da Ação (Obrigatória para Rejeição)</label>
                                         <input 
                                             type="text" 
                                             className="w-full border border-gray-300 p-2 rounded text-sm focus:ring-brand-500 focus:border-brand-500"
@@ -1595,27 +1327,32 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
                                     <div className="flex space-x-2">
                                         <button 
                                             onClick={() => handleProcessVerification('approve')}
-                                            className="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 shadow-sm flex items-center justify-center"
+                                            className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold text-sm hover:bg-green-700 shadow-sm flex items-center justify-center transition-transform hover:-translate-y-0.5"
                                         >
                                             <CheckCircle className="w-4 h-4 mr-2" />
                                             Aprovar
                                         </button>
                                         <button 
                                             onClick={() => handleProcessVerification('review_needed')}
-                                            className="flex-1 bg-yellow-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-yellow-600 shadow-sm flex items-center justify-center"
+                                            className="flex-1 bg-yellow-500 text-white py-3 rounded-lg font-bold text-sm hover:bg-yellow-600 shadow-sm flex items-center justify-center transition-transform hover:-translate-y-0.5"
                                         >
                                             <AlertTriangle className="w-4 h-4 mr-2" />
                                             Revisão
                                         </button>
                                         <button 
                                             onClick={() => handleProcessVerification('reject')}
-                                            className="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-red-700 shadow-sm flex items-center justify-center"
+                                            className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold text-sm hover:bg-red-700 shadow-sm flex items-center justify-center transition-transform hover:-translate-y-0.5"
                                         >
                                             <XCircle className="w-4 h-4 mr-2" />
                                             Rejeitar
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+                        ) : (
+                            <div className="flex-[1.5] bg-gray-50 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 p-8">
+                                <FileSearch className="w-16 h-16 mb-4 opacity-50" />
+                                <p className="font-medium">Selecione um item da fila para inspecionar</p>
                             </div>
                         )}
                      </div>
@@ -1733,6 +1470,304 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
             </div>
         </div>
     );
+  };
+
+  const renderContracts = () => {
+    // Filter logic
+    const filteredContracts = contracts.filter(c => {
+        const matchSearch = c.propertyTitle.toLowerCase().includes(contractFilters.search.toLowerCase()) || 
+                            c.tenantName.toLowerCase().includes(contractFilters.search.toLowerCase()) ||
+                            c.ownerName.toLowerCase().includes(contractFilters.search.toLowerCase());
+        const matchStatus = contractFilters.status === 'all' || c.status === contractFilters.status;
+        return matchSearch && matchStatus;
+    });
+
+    return (
+        <div className="space-y-6 animate-fadeIn">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <StatCard title="Contratos Ativos" value={contracts.filter(c => c.status === 'active').length} icon={FileText} color="green" />
+                <StatCard title="Pendentes Assinatura" value={contracts.filter(c => c.status === 'pending_signature').length} icon={PenTool} color="orange" />
+                <StatCard title="Terminados/Expirados" value={contracts.filter(c => c.status === 'terminated' || c.status === 'expired').length} icon={XCircle} color="red" />
+                <StatCard title="Valor Total (Mensal)" value="Kz 12.5M" icon={DollarSign} color="blue" />
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pesquisar</label>
+                    <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Propriedade, Inquilino ou Proprietário" 
+                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            value={contractFilters.search}
+                            onChange={e => setContractFilters({...contractFilters, search: e.target.value})}
+                        />
+                    </div>
+                </div>
+                <div>
+                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Estado</label>
+                     <select 
+                        value={contractFilters.status}
+                        onChange={e => setContractFilters({...contractFilters, status: e.target.value as any})}
+                        className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white"
+                     >
+                         <option value="all">Todos</option>
+                         <option value="active">Ativos</option>
+                         <option value="expired">Expirados</option>
+                         <option value="terminated">Rescindidos</option>
+                     </select>
+                </div>
+                <div>
+                    <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200">
+                        <Filter className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Contracts List */}
+            <div className="space-y-4">
+                {filteredContracts.map(contract => (
+                    <div key={contract.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                            <div className="flex items-start space-x-4">
+                                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                                    <FileSignature className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-900">{contract.propertyTitle}</h4>
+                                    <p className="text-sm text-gray-500">
+                                        <span className="font-medium">{contract.tenantName}</span> (Inquilino) • <span className="font-medium">{contract.ownerName}</span> (Proprietário)
+                                    </p>
+                                    <div className="flex items-center mt-2 text-xs text-gray-400 space-x-3">
+                                        <span className="flex items-center"><Hash className="w-3 h-3 mr-1"/> {contract.id}</span>
+                                        <span className="flex items-center"><Calendar className="w-3 h-3 mr-1"/> {contract.startDate} a {contract.endDate || 'N/A'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-4 md:mt-0 flex flex-col items-end space-y-2 w-full md:w-auto">
+                                <div className="flex items-center space-x-2">
+                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                          contract.status === 'active' ? 'bg-green-100 text-green-700' :
+                                          contract.status === 'pending_signature' ? 'bg-yellow-100 text-yellow-700' :
+                                          'bg-red-100 text-red-700'
+                                      }`}>
+                                          {contract.status === 'active' ? 'Ativo' : contract.status === 'pending_signature' ? 'Pendente' : contract.status}
+                                     </span>
+                                     <p className="font-bold text-gray-900">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: contract.currency }).format(contract.value)}</p>
+                                </div>
+                                
+                                <div className="flex space-x-2 w-full">
+                                    <button 
+                                        onClick={() => handleDownloadContract(contract.id)}
+                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 flex items-center"
+                                    >
+                                        <Download className="w-3 h-3 mr-1" /> PDF
+                                    </button>
+                                    {contract.status === 'active' && hasPermission('manage_contracts') && (
+                                        <>
+                                            <button 
+                                                onClick={() => handleContractAction(contract.id, 'renew')}
+                                                className="px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium hover:bg-green-100"
+                                            >
+                                                Renovar
+                                            </button>
+                                            <button 
+                                                onClick={() => handleContractAction(contract.id, 'terminate')}
+                                                className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
+                                            >
+                                                Rescindir
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                {filteredContracts.length === 0 && (
+                     <div className="text-center py-10 text-gray-500 bg-white border border-gray-200 rounded-xl border-dashed">
+                         <FileSearch className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+                         Nenhum contrato encontrado com os filtros atuais.
+                     </div>
+                )}
+            </div>
+        </div>
+    );
+  };
+
+  const renderCommunications = () => {
+      return (
+          <div className="space-y-6 animate-fadeIn">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Sender Form */}
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                          <Megaphone className="w-5 h-5 mr-2 text-brand-600" />
+                          Nova Notificação Push
+                      </h3>
+                      <div className="space-y-4">
+                          <div>
+                              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Título</label>
+                              <input 
+                                  type="text" 
+                                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-brand-500 focus:border-brand-500"
+                                  placeholder="Ex: Manutenção do Sistema"
+                                  value={notifForm.title}
+                                  onChange={e => setNotifForm({...notifForm, title: e.target.value})}
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Mensagem</label>
+                              <textarea 
+                                  className="w-full border border-gray-300 rounded-lg p-2 text-sm h-24 resize-none focus:ring-brand-500 focus:border-brand-500"
+                                  placeholder="A sua mensagem aqui..."
+                                  value={notifForm.message}
+                                  onChange={e => setNotifForm({...notifForm, message: e.target.value})}
+                              ></textarea>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Público Alvo</label>
+                                  <select 
+                                      className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                                      value={notifForm.target}
+                                      onChange={e => setNotifForm({...notifForm, target: e.target.value as any})}
+                                  >
+                                      <option value="all">Todos os Utilizadores</option>
+                                      <option value="tenant">Inquilinos</option>
+                                      <option value="owner">Proprietários</option>
+                                      <option value="broker">Corretores</option>
+                                  </select>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Tipo</label>
+                                  <select 
+                                      className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                                      value={notifForm.type}
+                                      onChange={e => setNotifForm({...notifForm, type: e.target.value as any})}
+                                  >
+                                      <option value="info">Informativo (Azul)</option>
+                                      <option value="warning">Alerta (Amarelo)</option>
+                                      <option value="promo">Promoção (Verde)</option>
+                                  </select>
+                              </div>
+                          </div>
+                          <div className="pt-2">
+                              <button 
+                                  onClick={handleSendPushNotification}
+                                  className="w-full bg-brand-600 text-white py-2 rounded-lg font-bold shadow-md hover:bg-brand-700 flex items-center justify-center"
+                              >
+                                  <Send className="w-4 h-4 mr-2" /> Enviar Notificação
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* History */}
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col h-full">
+                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
+                          <Clock className="w-5 h-5 mr-2 text-gray-500" />
+                          Histórico de Envios
+                      </h3>
+                      <div className="flex-1 overflow-y-auto space-y-3 pr-2 max-h-[400px]">
+                          {notificationHistory.map(notif => (
+                              <div key={notif.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                  <div className="flex justify-between items-start mb-1">
+                                      <h4 className="font-bold text-sm text-gray-900">{notif.title}</h4>
+                                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                                          notif.type === 'info' ? 'bg-blue-100 text-blue-700' :
+                                          notif.type === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                      }`}>{notif.type}</span>
+                                  </div>
+                                  <p className="text-xs text-gray-600 mb-2">{notif.message}</p>
+                                  <div className="flex justify-between items-center text-[10px] text-gray-400">
+                                      <span>Alvo: {notif.target}</span>
+                                      <span>{notif.date}</span>
+                                  </div>
+                              </div>
+                          ))}
+                          {notificationHistory.length === 0 && (
+                              <p className="text-center text-gray-400 text-sm py-10">Sem histórico.</p>
+                          )}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderChatAuditModal = () => {
+      if (!viewingChatLog) return null;
+
+      return (
+          <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+              <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="bg-red-50 p-4 border-b border-red-100 flex justify-between items-center">
+                      <div className="flex items-center text-red-800">
+                          <ShieldAlert className="w-6 h-6 mr-2" />
+                          <div>
+                              <h3 className="font-bold">Auditoria de Segurança</h3>
+                              <p className="text-xs text-red-600">ID do Chat: {viewingChatLog.id}</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setViewingChatLog(null)} className="text-red-400 hover:text-red-600">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+                  
+                  <div className="p-6 overflow-y-auto">
+                      <div className="mb-6">
+                          <h4 className="text-sm font-bold text-gray-500 uppercase mb-2">Detalhes da Infração</h4>
+                          <div className="bg-white border border-red-200 rounded-lg p-4 shadow-sm">
+                              <div className="grid grid-cols-2 gap-4 mb-3">
+                                  <div>
+                                      <span className="text-xs text-gray-400 block">Tipo de Alerta</span>
+                                      <span className="font-bold text-gray-800 text-sm">{viewingChatLog.reason === 'phone_sharing' ? 'Partilha de Contacto' : 'Linguagem Imprópria'}</span>
+                                  </div>
+                                  <div>
+                                      <span className="text-xs text-gray-400 block">Data/Hora</span>
+                                      <span className="font-bold text-gray-800 text-sm">{viewingChatLog.timestamp}</span>
+                                  </div>
+                              </div>
+                              <div>
+                                  <span className="text-xs text-gray-400 block mb-1">Snippet Detetado (Contexto)</span>
+                                  <div className="bg-gray-100 p-3 rounded font-mono text-sm text-gray-700 border-l-4 border-red-400">
+                                      "... {viewingChatLog.snippet} ..."
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800">
+                          <h4 className="font-bold flex items-center mb-1"><Info className="w-4 h-4 mr-2"/> Ação Recomendada</h4>
+                          <p>
+                              Verifique se os participantes tentaram contornar o sistema de pagamentos ou agendamento (Escrow).
+                              Se confirmado, suspenda os utilizadores envolvidos.
+                          </p>
+                      </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-end space-x-3">
+                      <button 
+                          onClick={() => handleResolveAudit(viewingChatLog.id, 'false_positive')}
+                          className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 shadow-sm"
+                      >
+                          Marcar como Seguro (Falso Positivo)
+                      </button>
+                      <button 
+                          onClick={() => handleResolveAudit(viewingChatLog.id, 'confirm_violation')}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-sm flex items-center"
+                      >
+                          <Ban className="w-4 h-4 mr-2" /> Confirmar Violação
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
   };
 
   return (
