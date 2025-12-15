@@ -1,4 +1,5 @@
-import { Property, Transaction, FlaggedChat, User, BlogPost, Contract, VisitRequest } from '../types';
+
+import { Property, Transaction, FlaggedChat, User, BlogPost, Contract, VisitRequest, ChatConversation, DocumentRecord, AuditLog, LegalClause, LegalAlert, SystemLog, ServiceHealth, DatabaseQuery } from '../types';
 
 export const MOCK_PROPERTIES: Property[] = [
   {
@@ -183,11 +184,10 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
         userName: 'Pedro Pendente',
         reference: '923 999 111'
     },
-    // Escrow Transaction 1: Active/Held
     {
         id: 'tx_escrow_1',
         type: 'escrow_deposit',
-        amount: 450000, // 3 months rent + deposit? Or just full payment
+        amount: 450000, 
         currency: 'AOA',
         status: 'escrow_held', 
         date: '2023-10-24',
@@ -196,34 +196,6 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
         propertyId: '1',
         propertyTitle: 'Apartamento T3 Moderno no Kilamba',
         reference: 'REF-ESC-001'
-    },
-    // Escrow Transaction 2: Released to Owner
-    {
-        id: 'tx_escrow_2',
-        type: 'escrow_deposit',
-        amount: 12000000,
-        currency: 'AOA',
-        status: 'released',
-        date: '2023-10-15',
-        userId: 'buyer_investor',
-        userName: 'Grupo Investidor Sul',
-        propertyId: '5',
-        propertyTitle: 'Terreno para Construção na Tundavala',
-        reference: 'REF-ESC-002'
-    },
-    // Escrow Transaction 3: Refunded
-    {
-        id: 'tx_escrow_3',
-        type: 'escrow_deposit',
-        amount: 650000,
-        currency: 'AOA',
-        status: 'refunded',
-        date: '2023-09-10',
-        userId: 'tenant_cancelled',
-        userName: 'Ana Desistência',
-        propertyId: '4',
-        propertyTitle: 'Vivenda V3 no Condomínio Vereda',
-        reference: 'REF-ESC-003'
     }
 ];
 
@@ -261,22 +233,38 @@ export const MOCK_CONTRACTS: Contract[] = [
         currency: 'AOA',
         signedAt: '2022-08-25',
         pdfUrl: '#'
+    }
+];
+
+export const MOCK_DOCUMENTS: DocumentRecord[] = [
+    {
+        id: 'FT-2023-089',
+        type: 'invoice',
+        title: 'Fatura de Serviço - Taxa de Publicação',
+        date: '2023-10-25',
+        url: '#',
+        relatedEntityId: 'tx1',
+        amount: 3000,
+        status: 'available'
     },
     {
-        id: 'CT-2023-003',
-        propertyId: '5',
-        propertyTitle: 'Terreno para Construção na Tundavala',
-        tenantId: 'buyer_investor',
-        tenantName: 'Grupo Investidor Sul',
-        ownerId: 'broker2',
-        ownerName: 'Huíla Imóveis',
-        type: 'sale',
-        status: 'active', // Completed sale contract
-        startDate: '2023-10-15',
-        value: 12000000,
-        currency: 'AOA',
-        signedAt: '2023-10-15',
-        pdfUrl: '#'
+        id: 'RC-2023-089',
+        type: 'receipt',
+        title: 'Recibo - Taxa de Publicação',
+        date: '2023-10-25',
+        url: '#',
+        relatedEntityId: 'tx1',
+        amount: 3000,
+        status: 'available'
+    },
+    {
+        id: 'CT-2023-001',
+        type: 'contract',
+        title: 'Contrato de Arrendamento - T3 Kilamba',
+        date: '2023-09-28',
+        url: '#',
+        relatedEntityId: 'CT-2023-001',
+        status: 'available'
     }
 ];
 
@@ -291,40 +279,75 @@ export const MOCK_FLAGGED_CHATS: FlaggedChat[] = [
 ];
 
 export const MOCK_USERS: User[] = [
-    { id: 'owner1', name: 'João Proprietário', email: 'joao@example.com', role: 'owner', isAuthenticated: true, status: 'active', phone: '923111222', isIdentityVerified: true },
-    { id: 'broker1', name: 'Imobiliária Horizonte', email: 'contato@horizonte.ao', role: 'broker', isAuthenticated: true, status: 'active', phone: '933444555', isIdentityVerified: true },
-    { id: 'tenant1', name: 'Maria Inquilina', email: 'maria@example.com', role: 'tenant', isAuthenticated: true, status: 'active', phone: '944888777', isIdentityVerified: true },
-    { id: 'owner_new', name: 'Pedro Pendente', email: 'pedro@example.com', role: 'owner', isAuthenticated: true, status: 'active', phone: '999000111', isIdentityVerified: false },
-    { id: 'tenant_suspicious', name: 'Carlos Suspeito', email: 'carlos@fraude.com', role: 'tenant', isAuthenticated: true, status: 'suspended', phone: '912345678', isIdentityVerified: false },
+    // External Users (Group A)
+    { id: 'owner1', name: 'João Proprietário', email: 'joao@example.com', role: 'owner', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '923111222', isIdentityVerified: true, joinedAt: '2023-01-15' },
+    { id: 'broker1', name: 'Imobiliária Horizonte', email: 'contato@horizonte.ao', role: 'broker', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '933444555', isIdentityVerified: true, joinedAt: '2023-03-22' },
+    { id: 'tenant1', name: 'Maria Inquilina', email: 'maria@example.com', role: 'tenant', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '944888777', isIdentityVerified: true, joinedAt: '2023-09-10' },
+    { id: 'owner_new', name: 'Pedro Pendente', email: 'pedro@new.ao', role: 'owner', group: 'external', accountStatus: 'pending_onboarding', isAuthenticated: true, phone: '911222333', isIdentityVerified: false, joinedAt: '2023-10-27' },
+    { id: 'usr_suspicious_99', name: 'Carlos Fraude', email: 'bad@actor.com', role: 'tenant', group: 'external', accountStatus: 'suspended_legal', isAuthenticated: true, phone: '999999999', isIdentityVerified: false, joinedAt: '2023-10-27' },
+
+    // Internal Staff (Group B)
+    { id: 'staff_admin', name: 'Admin Principal', email: 'admin@arrendaki.ao', role: 'admin', group: 'internal', accountStatus: 'active', isAuthenticated: true },
+    { id: 'staff_1', name: 'Ana Compliance', email: 'ana@arrendaki.ao', role: 'security_manager', group: 'internal', accountStatus: 'active', isAuthenticated: true },
+    { id: 'staff_colab', name: 'Carlos Marketing', email: 'carlos@arrendaki.ao', role: 'collaborator', group: 'internal', accountStatus: 'active', isAuthenticated: true },
+    { id: 'staff_legal', name: 'Dr. Jurídico', email: 'legal@arrendaki.ao', role: 'legal_compliance', group: 'internal', accountStatus: 'active', isAuthenticated: true },
 ];
 
 export const MOCK_BLOG_POSTS: BlogPost[] = [
     { 
         id: '1', 
-        title: '5 Dicas para Arrendar em Luanda sem Complicações', 
-        author: 'Equipa Arrendaki', 
+        title: '5 Sinais de Burla Imobiliária (e como o Kiá Verify o protege)',
+        subtitle: 'Aprenda a identificar anúncios falsos e proteja o seu dinheiro.',
+        slug: '5-sinais-burla-imobiliaria',
+        author: 'Equipa de Segurança Kiá', 
+        category: 'safety',
         status: 'published', 
         date: '20 Out 2023',
         image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80',
-        excerpt: 'Saiba o que verificar antes de assinar o contrato e como o Kiá Verify protege os seus interesses.'
+        excerpt: 'O mercado informal está cheio de riscos. Saiba o que verificar antes de transferir qualquer valor e como a nossa tecnologia elimina esses perigos.',
+        content: '<p>Lorem ipsum dolor sit amet...</p>',
+        metaTitle: '5 Sinais de Burla Imobiliária em Angola - Arrendaki Blog',
+        metaDescription: 'Guia completo para evitar fraudes no arrendamento e compra de imóveis em Luanda e províncias.'
     },
     { 
         id: '2', 
-        title: 'O que é a Transação Garantida (Escrow)?', 
+        title: 'O que diz a lei sobre a Taxa de Serviço de 2,5%',
+        subtitle: 'Transparência total sobre os custos do Arrendaki.',
+        slug: 'lei-taxa-servico-imobiliario',
         author: 'Departamento Jurídico', 
+        category: 'legal',
         status: 'published', 
-        date: '15 Out 2023',
-        image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=800&q=80',
-        excerpt: 'Entenda como guardamos o seu dinheiro de forma segura até à entrega das chaves do imóvel.'
+        date: '22 Out 2023',
+        image: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=800&q=80',
+        excerpt: 'Entenda a base legal da nossa comissão e porque é muito inferior aos 10% cobrados pelas agências tradicionais.',
+        content: '<p>Conteúdo jurídico detalhado...</p>',
+        metaTitle: 'Taxas Imobiliárias em Angola: A Verdade sobre os 2,5%',
+        metaDescription: 'Análise legal sobre a cobrança de serviços de mediação tecnológica em Angola.'
     },
     { 
         id: '3', 
-        title: 'Mercado Imobiliário: Tendências para 2024 em Angola', 
-        author: 'Gestão Comercial', 
-        status: 'published', 
-        date: '10 Out 2023',
-        image: 'https://images.unsplash.com/photo-1596766629910-c1e79cb798f0?auto=format&fit=crop&w=800&q=80',
-        excerpt: 'Uma análise sobre a valorização das zonas de Talatona, Kilamba e a nova centralidade do Bengo.'
+        title: 'Como preparar o seu imóvel para arrendar rápido',
+        subtitle: 'Dicas de Home Staging e Fotografia.',
+        slug: 'preparar-imovel-arrendamento',
+        author: 'Carlos Marketing', 
+        category: 'tips',
+        status: 'draft', 
+        date: '25 Out 2023',
+        image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80',
+        excerpt: 'Imóveis com boas fotos e descrições claras arrendam 3x mais rápido. Veja o nosso guia.',
+        content: '<p>Dicas de decoração...</p>',
+    },
+    { 
+        id: '4', 
+        title: 'Novas regras do Arrendamento Urbano em 2024',
+        subtitle: 'Atualização legislativa importante.',
+        slug: 'regras-arrendamento-urbano-2024',
+        author: 'Departamento Jurídico', 
+        category: 'legal',
+        status: 'pending_legal', 
+        date: '26 Out 2023',
+        excerpt: 'Análise das propostas de alteração à Lei do Arrendamento Urbano e impacto para senhorios.',
+        content: '<p>Análise da proposta de lei...</p>',
     }
 ];
 
@@ -341,18 +364,150 @@ export const MOCK_VISITS: VisitRequest[] = [
         time: '14:30',
         status: 'pending',
         message: 'Gostaria de ver o estado da cozinha.'
+    }
+];
+
+export const MOCK_CONVERSATIONS: ChatConversation[] = [
+    {
+        id: 'conv_1',
+        otherUserId: 'owner1',
+        otherUserName: 'João Proprietário',
+        otherUserRole: 'owner',
+        propertyId: '1',
+        propertyTitle: 'Apartamento T3 Moderno no Kilamba',
+        propertyImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=120&q=80',
+        lastMessage: 'Bom dia, o apartamento ainda está disponível para visitas?',
+        lastMessageTimestamp: '10:30',
+        unreadCount: 2,
+        isVerified: true
+    }
+];
+
+export const MOCK_AUDIT_LOGS: AuditLog[] = [
+    {
+        id: 'audit_001',
+        action: 'VERIFY_IDENTITY_DOC',
+        actor: 'security_manager',
+        target: 'owner1',
+        timestamp: '2023-10-26 14:20:00',
+        status: 'SUCCESS',
+        details: 'BI verificado com base de dados do MIREX (Simulado). Validação biométrica: OK.',
+        ip: '197.230.12.44'
     },
     {
-        id: 'v2',
-        propertyId: '4',
-        propertyTitle: 'Vivenda V3 no Condomínio Vereda',
-        propertyImage: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b91d?auto=format&fit=crop&w=800&q=80',
-        tenantId: 'tenant1',
-        tenantName: 'Maria Inquilina',
-        ownerId: 'owner3',
-        date: '2023-11-12',
-        time: '10:00',
-        status: 'confirmed',
-        message: 'Posso levar o meu cão?'
+        id: 'audit_002',
+        action: 'APPROVE_PROPERTY',
+        actor: 'commercial_manager',
+        target: 'prop_123',
+        timestamp: '2023-10-26 15:30:00',
+        status: 'SUCCESS',
+        details: 'Imóvel aprovado após revisão de fotos e preço. Aguardando pagamento.',
+        ip: '197.230.12.44'
+    },
+    {
+        id: 'audit_003',
+        action: 'PAYMENT_FAILURE',
+        actor: 'SYSTEM',
+        target: 'tx_failed_99',
+        timestamp: '2023-10-26 16:05:12',
+        status: 'FAIL',
+        details: 'Timeout na resposta do Gateway MCX Express.',
+        ip: '10.0.0.1'
     }
+];
+
+// --- MOCK LEGAL DATA ---
+
+export const MOCK_LEGAL_CLAUSES: LegalClause[] = [
+    {
+        id: 'lc_001',
+        category: 'lease',
+        title: 'Cláusula de Resolução por Falta de Pagamento',
+        content: 'O não pagamento da renda por período superior a 30 dias constitui fundamento para a resolução imediata do presente contrato, sem necessidade de aviso prévio adicional.',
+        version: '1.2',
+        lastUpdated: '2023-10-01',
+        status: 'approved',
+        approvedBy: 'admin_legal'
+    },
+    {
+        id: 'lc_002',
+        category: 'sale',
+        title: 'Cláusula de Sinal e Princípio de Pagamento',
+        content: 'Como sinal e princípio de pagamento, o Segundo Outorgante entrega nesta data a quantia de [VALOR_SINAL], cuja quitação é dada pela assinatura deste contrato.',
+        version: '1.0',
+        lastUpdated: '2023-09-15',
+        status: 'approved',
+        approvedBy: 'admin_legal'
+    },
+    {
+        id: 'lc_003',
+        category: 'lease',
+        title: 'Cláusula de Benfeitorias (Rascunho)',
+        content: 'Quaisquer obras de melhoramento carecem de autorização por escrito do Senhorio e, uma vez realizadas, passam a integrar o imóvel sem direito a indemnização.',
+        version: '2.0-draft',
+        lastUpdated: '2023-10-27',
+        status: 'draft'
+    }
+];
+
+export const MOCK_LEGAL_ALERTS: LegalAlert[] = [
+    {
+        id: 'alert_001',
+        severity: 'critical',
+        type: 'document_fraud',
+        targetUser: 'usr_suspicious_99',
+        targetUserName: 'Carlos Fraude',
+        transactionId: 'tx_fraud_attempt',
+        description: 'Tentativa de upload de Documento de Identidade falsificado detetada pelo sistema biométrico (Tentativa 3/3).',
+        timestamp: '2023-10-27 09:45:00',
+        status: 'open'
+    },
+    {
+        id: 'alert_002',
+        severity: 'high',
+        type: 'suspicious_activity',
+        targetUser: 'owner_check_2',
+        targetUserName: 'Maria Verificação',
+        description: 'Múltiplas alterações de IBAN bancário num curto espaço de tempo antes de receber o Escrow.',
+        timestamp: '2023-10-26 18:30:00',
+        status: 'investigating'
+    }
+];
+
+// --- MOCK SYSTEM LOGS & IT DATA ---
+
+export const MOCK_SYSTEM_LOGS: SystemLog[] = [
+    {
+        id: 'sys_001', level: 'critical', action: 'DB_CONNECTION_ERROR', 
+        message: 'Failed to connect to primary replica', 
+        timestamp: '2023-10-27 10:15:22', module: 'Database', statusCode: 500, stackTrace: 'Error: Connection timeout at pg.connect()'
+    },
+    {
+        id: 'sys_002', level: 'security', action: 'UNAUTHORIZED_ACCESS', 
+        message: 'Access denied to /admin/contracts', 
+        timestamp: '2023-10-27 09:45:00', userId: 'usr_suspicious_99', ip: '41.220.10.2', statusCode: 403
+    },
+    {
+        id: 'sys_003', level: 'info', action: 'LOGIN_SUCCESS', 
+        message: 'Staff member logged in', 
+        timestamp: '2023-10-27 08:30:00', userId: 'staff_admin', ip: '197.230.12.44'
+    },
+    {
+        id: 'sys_004', level: 'warning', action: 'PERMISSION_CHANGE', 
+        message: 'Promoted user to Commercial Manager', 
+        timestamp: '2023-10-26 16:20:00', userId: 'staff_admin', details: 'Promoted: staff_1'
+    }
+];
+
+export const MOCK_SERVICE_HEALTH: ServiceHealth[] = [
+    { id: 'srv_1', name: 'Database Primary', status: 'healthy', latency: 45, lastChecked: 'Just now' },
+    { id: 'srv_2', name: 'API Gateway', status: 'healthy', latency: 20, lastChecked: 'Just now' },
+    { id: 'srv_3', name: 'Kiá Verify Engine', status: 'degraded', latency: 850, lastChecked: '1 min ago' },
+    { id: 'srv_4', name: 'Payment Gateway (MCX)', status: 'healthy', latency: 120, lastChecked: 'Just now' },
+    { id: 'srv_5', name: 'CDN (Images)', status: 'healthy', latency: 15, lastChecked: 'Just now' },
+];
+
+export const MOCK_SLOW_QUERIES: DatabaseQuery[] = [
+    { id: 'q_1', query: 'SELECT * FROM transactions WHERE status = "pending" JOIN users ...', duration: 2500, timestamp: '10:15:22', origin: '/admin/finance' },
+    { id: 'q_2', query: 'UPDATE properties SET status = "expired" WHERE ...', duration: 1200, timestamp: '03:00:00', origin: 'CRON_JOB' },
 ];

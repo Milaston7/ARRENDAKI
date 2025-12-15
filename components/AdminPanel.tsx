@@ -1,341 +1,272 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Property, User, UserRole, Transaction, FlaggedChat, VerificationRequest, BlogPost, Contract } from '../types';
-import { MOCK_TRANSACTIONS, MOCK_FLAGGED_CHATS, MOCK_USERS, MOCK_CONTRACTS, MOCK_BLOG_POSTS } from '../services/mockData';
+import { Property, User, UserRole, Transaction, FlaggedChat, VerificationRequest, BlogPost, Contract, AuditLog, LegalClause, LegalAlert, SystemLog, ServiceHealth, DatabaseQuery } from '../types';
+import { MOCK_TRANSACTIONS, MOCK_FLAGGED_CHATS, MOCK_CONTRACTS, MOCK_LEGAL_CLAUSES, MOCK_LEGAL_ALERTS, MOCK_SYSTEM_LOGS, MOCK_SERVICE_HEALTH, MOCK_SLOW_QUERIES } from '../services/mockData';
+import { PROVINCES, MUNICIPALITIES_MOCK } from '../constants';
 import { 
-  LayoutDashboard, 
-  Users, 
-  ShieldCheck, 
-  CheckCircle, 
-  XCircle, 
-  BarChart, 
-  DollarSign, 
-  Server,
-  Database,
-  Activity,
-  Map,
-  Bell,
-  Download,
-  Ban,
-  PenTool,
-  Save,
-  Send,
-  Trash2,
-  Lock,
-  FileText,
-  Edit,
-  AlertTriangle,
-  Eye,
-  MessageSquare,
-  Image as ImageIcon,
-  Plus,
-  Filter,
-  Calendar,
-  AlertCircle,
-  FileSearch,
-  UserCheck,
-  Search,
-  ArrowUpRight,
-  Briefcase,
-  Home,
-  BookOpen,
-  Clock,
-  LifeBuoy,
-  TrendingDown,
-  Wallet,
-  FileSignature,
-  Megaphone,
-  X,
-  Mail,
-  ShieldAlert,
-  Bold, 
-  Italic, 
-  List, 
-  AlignLeft, 
-  AlignCenter, 
-  AlignRight, 
-  Link as LinkIcon, 
-  Quote, 
-  Heading1, 
-  Heading2,
-  Upload,
-  Film,
-  Fingerprint,
-  Info,
-  FileSpreadsheet,
-  PieChart,
-  ArrowRightLeft,
-  CreditCard,
-  ZoomIn,
-  Tag,
-  Hash
+  LayoutDashboard, Users, ShieldCheck, CheckCircle, XCircle, BarChart, DollarSign, Server,
+  Database, Activity, Map, Bell, Download, Ban, PenTool, Save, Send, Trash2, Lock, Unlock,
+  RotateCcw, FileText, Edit, AlertTriangle, Eye, MessageSquare, Image as ImageIcon, Plus,
+  Filter, Calendar, AlertCircle, FileSearch, UserCheck, Search, ArrowUpRight, Briefcase,
+  Home, BookOpen, Clock, LifeBuoy, TrendingDown, Wallet, FileSignature, Megaphone, X, Mail,
+  ShieldAlert, Bold, Italic, List, AlignLeft, AlignCenter, AlignRight, Link as LinkIcon, Quote, 
+  Heading1, Heading2, Upload, Film, Fingerprint, Info, FileSpreadsheet, PieChart, ArrowRightLeft,
+  CreditCard, ZoomIn, Tag, Hash, Phone, RefreshCw, Video, Cpu, HardDrive, CloudLightning, FileCode,
+  MapPin, UserPlus, Key, ChevronDown, ChevronUp, Globe, ChevronRight, Zap, Gavel, Scale, Siren, EyeOff, Shield,
+  FileWarning, Search as SearchIcon, Printer, History, Terminal, Network, MousePointer, TrendingUp, AlertOctagon, Receipt, CheckSquare,
+  FileCheck, Calculator, Paperclip, UserCog, Power, Layers, UserMinus, RefreshCcw, ServerCrash
 } from 'lucide-react';
 
-// --- ACL CONFIGURATION ---
-
-type Permission = 
-  | 'view_dashboard'
-  | 'view_operations_module'
-  | 'view_finance_module'
-  | 'view_security_module'
-  | 'view_infrastructure_module'
-  | 'view_team_module'
-  | 'view_contracts_module'
-  | 'view_communication_module'
-  | 'manage_properties'
-  | 'approve_properties'
-  | 'manage_users'
-  | 'ban_users'
-  | 'contact_users'
-  | 'manage_finance'
-  | 'manage_escrow'
-  | 'manage_verification'
-  | 'manage_contracts'
-  | 'manage_communications'
-  | 'audit_chats'
-  | 'manage_infrastructure'
-  | 'manage_content'
-  | 'publish_content'
-  | 'manage_team';
-
-const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  admin: [
-    'view_dashboard', 'view_operations_module', 'view_finance_module', 'view_security_module', 
-    'view_infrastructure_module', 'view_team_module', 'view_contracts_module', 'view_communication_module',
-    'manage_properties', 'approve_properties', 'manage_users', 'ban_users', 'contact_users', 
-    'manage_finance', 'manage_escrow', 'manage_verification', 'audit_chats', 'manage_infrastructure', 
-    'manage_content', 'publish_content', 'manage_team', 'manage_contracts', 'manage_communications'
-  ],
-  commercial_manager: [
-    'view_dashboard', 'view_operations_module', 'view_finance_module', 'view_contracts_module', 'view_communication_module',
-    'manage_properties', 'approve_properties', 'manage_users', 'contact_users',
-    'manage_finance', 'manage_escrow', 'manage_content', 'publish_content', 'manage_contracts', 'manage_communications'
-  ],
-  security_manager: [
-    'view_dashboard', 'view_security_module', 'manage_users', 'ban_users',
-    'manage_verification', 'audit_chats'
-  ],
-  it_tech: [
-    'view_dashboard', 'view_infrastructure_module', 'manage_infrastructure'
-  ],
-  collaborator: [
-    'view_dashboard', 'view_operations_module', 'manage_content'
-  ],
-  tenant: [], owner: [], broker: [], legal_rep: []
-};
-
-interface AdminPanelProps {
-  properties: Property[];
-  onUpdateProperty: (id: string, updates: Partial<Property>) => void;
-  currentUserRole: UserRole; 
-}
-
-// --- RICH TEXT EDITOR TOOLBAR COMPONENT ---
-const RichTextToolbar = () => (
-    <div className="flex items-center space-x-1 border-b border-gray-200 p-2 bg-gray-50 rounded-t-lg">
-        <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Negrito"><Bold className="w-4 h-4" /></button>
-        <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Itálico"><Italic className="w-4 h-4" /></button>
-        <div className="w-px h-4 bg-gray-300 mx-2"></div>
-        <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Título 1"><Heading1 className="w-4 h-4" /></button>
-        <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Título 2"><Heading2 className="w-4 h-4" /></button>
-        <div className="w-px h-4 bg-gray-300 mx-2"></div>
-        <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Lista"><List className="w-4 h-4" /></button>
-        <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Citação"><Quote className="w-4 h-4" /></button>
-        <div className="w-px h-4 bg-gray-300 mx-2"></div>
-        <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Link"><LinkIcon className="w-4 h-4" /></button>
-        <div className="ml-auto flex items-center space-x-1">
-            <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600"><AlignLeft className="w-4 h-4" /></button>
-            <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600"><AlignCenter className="w-4 h-4" /></button>
-            <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600"><AlignRight className="w-4 h-4" /></button>
-        </div>
-    </div>
-);
-
-// --- CRITICAL ACTION MODAL COMPONENT ---
-interface ConfirmationModalProps {
+interface SecurityConfirmationModalProps {
   isOpen: boolean;
   title: string;
   description: string;
   onConfirm: () => void;
   onCancel: () => void;
-  variant?: 'danger' | 'warning' | 'info';
+  variant: 'danger' | 'warning' | 'info';
 }
 
-const SecurityConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, title, description, onConfirm, onCancel, variant = 'warning' }) => {
+const SecurityConfirmationModal: React.FC<SecurityConfirmationModalProps> = ({ isOpen, title, description, onConfirm, onCancel, variant }) => {
   if (!isOpen) return null;
   
   const colors = {
-    danger: 'bg-red-50 text-red-700 border-red-200',
-    warning: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    info: 'bg-blue-50 text-blue-700 border-blue-200'
-  };
-
-  const btnColors = {
     danger: 'bg-red-600 hover:bg-red-700',
     warning: 'bg-yellow-600 hover:bg-yellow-700',
     info: 'bg-blue-600 hover:bg-blue-700'
   };
 
+  const icons = {
+    danger: <AlertTriangle className="w-6 h-6 text-red-600" />,
+    warning: <AlertCircle className="w-6 h-6 text-yellow-600" />,
+    info: <Info className="w-6 h-6 text-blue-600" />
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100">
-        <div className={`p-6 border-b ${variant === 'danger' ? 'border-red-100' : 'border-gray-100'}`}>
-          <div className="flex items-center space-x-3 mb-2">
-            <div className={`p-2 rounded-full ${colors[variant]}`}>
-               {variant === 'danger' ? <AlertTriangle className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
-            </div>
-            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="flex items-center mb-4">
+          <div className="p-2 bg-gray-100 rounded-full mr-3">
+             {icons[variant]}
           </div>
-          <p className="text-gray-600 text-sm leading-relaxed">{description}</p>
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
         </div>
-        <div className="p-4 bg-gray-50 flex justify-end space-x-3">
-          <button onClick={onCancel} className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium">Cancelar</button>
-          <button onClick={onConfirm} className={`px-4 py-2 text-white rounded-lg font-bold shadow-sm ${btnColors[variant]}`}>
-            Confirmar Ação
-          </button>
+        <p className="text-gray-600 mb-6">{description}</p>
+        <div className="flex justify-end space-x-3">
+          <button onClick={onCancel} className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-100 rounded-lg">Cancelar</button>
+          <button onClick={onConfirm} className={`px-4 py-2 text-white font-bold rounded-lg ${colors[variant]}`}>Confirmar</button>
         </div>
       </div>
     </div>
   );
 };
 
-// --- KPI WIDGET COMPONENT ---
-interface StatCardProps {
-    title: string;
-    value: string | number;
-    icon: React.ElementType;
-    trend?: string;
-    trendDirection?: 'up' | 'down';
-    color: 'blue' | 'green' | 'orange' | 'purple' | 'red';
-    subtitle?: string;
+interface AdminPanelProps {
+  properties: Property[];
+  onUpdateProperty: (id: string, updates: Partial<Property>) => void;
+  users: User[];
+  onUpdateUser: (id: string, updates: Partial<User>, reason?: string) => void;
+  blogPosts: BlogPost[];
+  onUpdateBlogPost: (id: string, updates: Partial<BlogPost>) => void;
+  onAddBlogPost: (newPost: BlogPost) => void;
+  currentUserRole: UserRole; 
+  onToggleSystemStatus?: () => void;
+  isSystemCritical?: boolean;
+  auditLogs: AuditLog[];
+  addAuditLog: (action: string, target: string, details: string, status: 'SUCCESS' | 'FAIL' | 'WARNING') => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, trendDirection, color, subtitle }) => {
-    const colorStyles = {
-        blue: 'bg-blue-50 text-blue-600 border-blue-100',
-        green: 'bg-green-50 text-green-600 border-green-100',
-        orange: 'bg-orange-50 text-orange-600 border-orange-100',
-        purple: 'bg-purple-50 text-purple-600 border-purple-100',
-        red: 'bg-red-50 text-red-600 border-red-100'
+// Extended Transaction Type for Finance Module
+interface FinanceTransaction extends Transaction {
+    vtt: number; // Value Total Transaction (Base for 2.5%)
+    feeCalculated: number;
+    feePaid: number;
+    cpt: number; // Cost Per Transaction (Variable Costs)
+    statusAudit: 'ok' | 'deviation' | 'pending';
+    // Security & Integrity Fields
+    isLocked: boolean; // Immutability Flag
+    paymentHash?: string; // Integrity Hash
+    vttEditRequest?: {
+        active: boolean;
+        newVtt: number;
+        approvals: {
+            analyst: boolean;
+            legal: boolean;
+            finance: boolean;
+        };
     };
+}
 
-    const trendColor = trendDirection === 'up' ? 'text-green-600' : trendDirection === 'down' ? 'text-red-600' : 'text-gray-500';
-    const TrendIcon = trendDirection === 'up' ? ArrowUpRight : trendDirection === 'down' ? TrendingDown : null;
+const AdminPanel: React.FC<AdminPanelProps> = ({ 
+    properties, 
+    onUpdateProperty, 
+    users, 
+    onUpdateUser,
+    blogPosts,
+    onUpdateBlogPost,
+    onAddBlogPost,
+    currentUserRole,
+    onToggleSystemStatus,
+    isSystemCritical,
+    auditLogs,
+    addAuditLog
+}) => {
+  const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+      admin: [
+        'view_dashboard', 'view_operations_module', 'view_finance_module', 'view_security_module', 
+        'view_infrastructure_module', 'view_team_module', 'view_contracts_module', 'view_communication_module',
+        'view_compliance_module', 'view_iam_module', 'view_it_module', // Access PCC, IAM, IT
+        'manage_properties', 'approve_properties', 'manage_users', 'ban_users', 'contact_users', 
+        'manage_finance', 'manage_escrow', 'manage_verification', 'audit_chats', 'manage_infrastructure', 
+        'manage_content', 'publish_content', 'approve_content', 'manage_team', 'manage_contracts', 'manage_communications',
+        'manage_locations', 'view_audit_module', 'manage_legal_contracts', 'handle_fraud_alerts', 'iam_full_access', 'it_full_access'
+      ],
+      commercial_manager: [
+        'view_dashboard', 'view_operations_module', 'view_finance_module', 'view_contracts_module', 'view_communication_module',
+        'manage_properties', 'approve_properties', 'manage_users', 'contact_users',
+        'manage_finance', 'manage_escrow', 'manage_content', 'publish_content', 'manage_contracts', 'manage_communications',
+        'manage_locations'
+      ],
+      security_manager: [
+        'view_dashboard', 'view_security_module', 'manage_users', 'ban_users',
+        'manage_verification', 'audit_chats', 'view_audit_module', 'view_compliance_module', 'handle_fraud_alerts'
+      ],
+      legal_compliance: [
+        'view_dashboard', 'view_contracts_module', 'view_compliance_module', 'view_audit_module', 'view_security_module', 'view_communication_module',
+        'manage_contracts', 'manage_legal_contracts', 'handle_fraud_alerts', 'manage_verification', 'contact_users', 'approve_content'
+      ],
+      it_tech: [
+        'view_dashboard', 'view_infrastructure_module', 'manage_infrastructure', 'view_audit_module', 'view_it_module', 'it_full_access'
+      ],
+      collaborator: [
+        'view_dashboard', 'view_operations_module', 'view_communication_module', 'manage_content'
+      ],
+      tenant: [], owner: [], broker: [], legal_rep: []
+  };
 
-    return (
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
-                    <h3 className="text-3xl font-extrabold text-gray-900 tracking-tight">{value}</h3>
-                    {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
-                </div>
-                <div className={`p-3 rounded-xl border ${colorStyles[color]}`}>
-                    <Icon className="w-6 h-6" />
-                </div>
-            </div>
-            {trend && (
-                <div className={`flex items-center mt-4 text-xs font-bold ${trendColor}`}>
-                    {TrendIcon && <TrendIcon className="w-3 h-3 mr-1" />}
-                    <span>{trend}</span>
-                    <span className="text-gray-400 font-normal ml-1">vs ontem</span>
-                </div>
-            )}
-        </div>
-    );
-};
-
-const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, currentUserRole }) => {
-  
-  const hasPermission = (permission: Permission): boolean => {
+  const hasPermission = (permission: string): boolean => {
     const permissions = ROLE_PERMISSIONS[currentUserRole] || [];
     return permissions.includes(permission);
   };
 
-  const getDefaultModule = () => {
-      if (hasPermission('view_operations_module')) return 'operations';
-      if (hasPermission('view_contracts_module')) return 'contracts';
-      if (hasPermission('view_communication_module')) return 'communication';
-      if (hasPermission('view_security_module')) return 'security';
-      if (hasPermission('view_finance_module')) return 'finance';
-      if (hasPermission('view_infrastructure_module')) return 'infrastructure';
-      if (hasPermission('view_team_module')) return 'team';
-      return 'operations';
-  };
-
-  const getDefaultSubTab = (module: string) => {
-    if (module === 'operations') {
-        if (hasPermission('view_dashboard')) return 'dashboard';
-        if (hasPermission('manage_properties')) return 'properties';
-        if (hasPermission('manage_content')) return 'blog';
-        if (hasPermission('manage_users')) return 'users';
-        return 'dashboard';
-    }
-    if (module === 'finance') return 'dashboard';
-    if (module === 'security') return 'verify';
-    if (module === 'infrastructure') return 'infrastructure'; 
-    if (module === 'communication') return 'push_notifications';
-    return 'dashboard';
-  };
-
-  const initialModule = getDefaultModule();
-  const [activeModule, setActiveModule] = useState<'operations' | 'finance' | 'security' | 'infrastructure' | 'team' | 'contracts' | 'communication'>(initialModule);
-  const [activeSubTab, setActiveSubTab] = useState<string>(getDefaultSubTab(initialModule));
+  const [activeModule, setActiveModule] = useState<'operations' | 'finance' | 'security' | 'infrastructure' | 'team' | 'contracts' | 'communication' | 'audit' | 'compliance' | 'iam' | 'it'>('operations');
+  const [activeSubTab, setActiveSubTab] = useState<string>('properties');
+  const [securityTab, setSecurityTab] = useState<'verify' | 'audits'>('verify');
   
-  useEffect(() => {
-    setActiveSubTab(getDefaultSubTab(activeModule));
-  }, [activeModule]);
+  // Finance Module Tabs
+  const [financeTab, setFinanceTab] = useState<'vtt_dashboard' | 'fee_audit' | 'disputes' | 'costs' | 'account_closure'>('vtt_dashboard');
 
-  // Data States
+  // Compliance Tabs
+  const [complianceTab, setComplianceTab] = useState<'risk_dashboard' | 'supervision' | 'contract_engine' | 'fraud_alerts'>('risk_dashboard');
+
+  // IAM Tabs
+  const [iamTab, setIamTab] = useState<'users_list' | 'roles' | 'staff_logs'>('users_list');
+  const [iamSearch, setIamSearch] = useState('');
+  
+  // IAM Management State (Updated for Emergency Functions)
+  const [iamModal, setIamModal] = useState<{ isOpen: boolean; type: 'create' | 'edit_role'; user?: User }>({ isOpen: false, type: 'create' });
+  const [iamFormData, setIamFormData] = useState({ name: '', email: '', role: 'collaborator' as UserRole, justification: '' });
+  
+  // IAM Emergency Action State
+  const [iamEmergency, setIamEmergency] = useState<{ 
+      isOpen: boolean; 
+      type: 'reset_pass' | 'block' | 'unblock' | 'offboard' | null; 
+      user: User | null; 
+  }>({ isOpen: false, type: null, user: null });
+  const [emergencyReason, setEmergencyReason] = useState('');
+  const [blockType, setBlockType] = useState<'session' | 'fraud'>('session');
+
+  // IT Tabs
+  const [itTab, setItTab] = useState<'logs' | 'health' | 'tools' | 'db' | 'connectivity'>('logs');
+  const [itLogFilter, setItLogFilter] = useState<'all' | 'error' | 'security'>('all');
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>(MOCK_SYSTEM_LOGS);
+  const [serviceHealth, setServiceHealth] = useState<ServiceHealth[]>(MOCK_SERVICE_HEALTH);
+  const [slowQueries, setSlowQueries] = useState<DatabaseQuery[]>(MOCK_SLOW_QUERIES);
+
+  // Extended Finance Mock Data with Security Fields
+  const [financeTransactions, setFinanceTransactions] = useState<FinanceTransaction[]>([
+      { ...MOCK_TRANSACTIONS[0], vtt: 120000, feeCalculated: 3000, feePaid: 3000, cpt: 150, statusAudit: 'ok', isLocked: true, paymentHash: 'SHA:8a7b9c...' }, // Listing Fee (Fixed)
+      { 
+          id: 'tx_escrow_audit_1', type: 'service_fee', amount: 450000, currency: 'AOA', status: 'completed', date: '2023-10-24', userId: 'user_1',
+          vtt: 18000000, feeCalculated: 450000, feePaid: 450000, cpt: 12000, statusAudit: 'ok', isLocked: false 
+      },
+      { 
+          id: 'tx_escrow_audit_2', type: 'service_fee', amount: 120000, currency: 'AOA', status: 'completed', date: '2023-10-25', userId: 'user_2',
+          vtt: 5000000, feeCalculated: 125000, feePaid: 120000, cpt: 5000, statusAudit: 'deviation', isLocked: false 
+      }
+  ]);
+
+  // Editing VTT State
+  const [editingVttId, setEditingVttId] = useState<string | null>(null);
+  const [tempVttValue, setTempVttValue] = useState<string>('');
+
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [contracts, setContracts] = useState<Contract[]>(MOCK_CONTRACTS);
+  const [legalClauses, setLegalClauses] = useState<LegalClause[]>(MOCK_LEGAL_CLAUSES);
+  const [legalAlerts, setLegalAlerts] = useState<LegalAlert[]>(MOCK_LEGAL_ALERTS);
   
-  const [contractFilters, setContractFilters] = useState({
-      search: '', user: '', date: '', status: 'all' as 'all' | 'active' | 'expired' | 'terminated'
-  });
+  // Mock Operational Costs
+  const [operationalCosts, setOperationalCosts] = useState([
+      { id: 'cost_1', type: 'SMS Gateway', amount: 15000, date: '2023-10-27', vendor: 'Unitel', hasProof: true },
+      { id: 'cost_2', type: 'KYC API', amount: 45000, date: '2023-10-26', vendor: 'MIREX Integ.', hasProof: true },
+      { id: 'cost_3', type: 'Server Hosting', amount: 200000, date: '2023-10-01', vendor: 'AWS', hasProof: false }, // Missing Proof
+  ]);
 
+  // Mock Disputes
+  const [refundQueue, setRefundQueue] = useState([
+      { id: 'ref_1', txId: 'tx_escrow_1', amount: 450000, reason: 'Imóvel não corresponde às fotos', requestedBy: 'Maria Inquilina', stage: 'analyst_review', createdAt: '2023-10-26' },
+      { id: 'ref_2', txId: 'tx1', amount: 3000, reason: 'Pagamento duplicado', requestedBy: 'João Proprietário', stage: 'legal_review', createdAt: '2023-10-27' },
+      { id: 'ref_3', txId: 'tx_escrow_99', amount: 120000, reason: 'Desistência no prazo legal', requestedBy: 'Cliente Teste', stage: 'approved', createdAt: '2023-10-20' }
+  ]);
+
+  // Account Closure State
+  const [closureSearch, setClosureSearch] = useState('');
+  const [closureTarget, setClosureTarget] = useState<User | null>(null);
+  const [closureReportGenerated, setClosureReportGenerated] = useState(false);
+
+  const [viewingProperty, setViewingProperty] = useState<Property | null>(null);
+  const [viewingContract, setViewingContract] = useState<Contract | null>(null);
+
+  // --- Kiá Verify State ---
   const [verificationQueue, setVerificationQueue] = useState<VerificationRequest[]>([
       { id: 'v1', userId: 'owner1', type: 'identity', documentUrl: 'https://images.unsplash.com/photo-1544507888-56d73eb6046e?auto=format&fit=crop&w=600&q=80', status: 'pending', submittedAt: '2023-10-26' },
       { id: 'v2', userId: 'owner1', type: 'property_ownership', documentUrl: 'https://images.unsplash.com/photo-1555529733-0e670560f7e1?auto=format&fit=crop&w=600&q=80', status: 'pending', submittedAt: '2023-10-26' },
       { id: 'v3', userId: 'tenant1', type: 'identity', documentUrl: 'https://images.unsplash.com/photo-1589330694653-569b9a13d2f2?auto=format&fit=crop&w=600&q=80', status: 'review_needed', submittedAt: '2023-10-25', reviewedBy: 'staff_1', reviewNotes: 'Foto tremida' }
   ]);
-  const [inspectingRequest, setInspectingRequest] = useState<VerificationRequest | null>(null);
-  const [verificationActionNote, setVerificationActionNote] = useState('');
+  const [selectedVerification, setSelectedVerification] = useState<VerificationRequest | null>(null);
+  const [documentRevealed, setDocumentRevealed] = useState(false);
+  const [fieldValidation, setFieldValidation] = useState<Record<string, 'idle' | 'valid' | 'invalid'>>({
+      name: 'idle',
+      bi: 'idle',
+      address: 'idle',
+      face: 'idle'
+  });
+  const [verificationNote, setVerificationNote] = useState('');
+
+  // --- Supervision State ---
+  const [supervisionQuery, setSupervisionQuery] = useState('');
+  const [supervisionUser, setSupervisionUser] = useState<User | null>(null);
+
+  // --- Contract Engine Editor State ---
+  const [editingClause, setEditingClause] = useState<LegalClause | null>(null);
+  const [editorContent, setEditorContent] = useState('');
+  const [editorTitle, setEditorTitle] = useState('');
+
+  // --- Forensic Analysis State ---
+  const [selectedAlert, setSelectedAlert] = useState<LegalAlert | null>(null);
 
   const [auditChats, setAuditChats] = useState<FlaggedChat[]>(MOCK_FLAGGED_CHATS);
-  const [viewingChatLog, setViewingChatLog] = useState<FlaggedChat | null>(null);
   
-  const [usersList, setUsersList] = useState<User[]>(MOCK_USERS);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [viewingUser, setViewingUser] = useState<User | null>(null);
+  // --- BLOG / CMS STATE ---
+  const [blogStatusFilter, setBlogStatusFilter] = useState<'all' | 'published' | 'pending_legal' | 'draft'>('all');
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+  const [postRejectionReason, setPostRejectionReason] = useState('');
   
-  // Notification Module State
-  const [notificationHistory, setNotificationHistory] = useState([
+  const [notificationHistory, setNotificationHistory] = useState<any[]>([
       { id: 1, title: 'Manutenção Programada', message: 'A plataforma estará indisponível das 02h às 04h para melhorias.', target: 'Todos', type: 'info', date: '2023-10-25', status: 'sent' },
       { id: 2, title: 'Nova Funcionalidade: Kiá Verify', message: 'Verifique a sua conta hoje e ganhe destaque nos anúncios.', target: 'Proprietários', type: 'promo', date: '2023-10-20', status: 'sent' }
   ]);
-  const [notifForm, setNotifForm] = useState({ 
-      title: '', 
-      message: '', 
-      target: 'all' as 'all' | 'tenant' | 'owner' | 'broker', 
-      type: 'info' as 'info' | 'warning' | 'promo' 
-  });
-
-  const [blogPosts, setBlogPosts] = useState<BlogPost[]>(MOCK_BLOG_POSTS);
-  const [showBlogEditor, setShowBlogEditor] = useState(false);
-  const [currentPost, setCurrentPost] = useState<Partial<BlogPost> & { video?: string }>({});
   
-  const blogImageInputRef = useRef<HTMLInputElement>(null);
-  const blogVideoInputRef = useRef<HTMLInputElement>(null);
-
-  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [propertyFilter, setPropertyFilter] = useState<'pending' | 'all'>('pending');
-  
-  // Finance Reports State
-  const [reportStartDate, setReportStartDate] = useState('');
-  const [reportEndDate, setReportEndDate] = useState('');
-  const [reportType, setReportType] = useState('all');
-
   const [rejectDialog, setRejectDialog] = useState<{ isOpen: boolean; propertyId: string; reason: string }>({
       isOpen: false, propertyId: '', reason: ''
   });
@@ -357,1504 +288,1707 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ properties, onUpdateProperty, c
     setConfirmation({ ...confirmation, isOpen: false });
   };
 
-  // --- ACTION HANDLERS ---
-
-  const handlePropertyAction = (id: string, action: 'approve' | 'archive') => {
-      triggerCriticalAction(
-        action === 'approve' ? 'Aprovar Imóvel' : 'Arquivar Imóvel',
-        `Tem a certeza que deseja ${action === 'approve' ? 'publicar' : 'arquivar'} este imóvel?`,
-        () => {
-           if (action === 'approve') {
-                onUpdateProperty(id, { status: 'available', isVerified: true });
-            } else {
-                onUpdateProperty(id, { status: 'archived' });
-            }
-        },
-        action === 'archive' ? 'warning' : 'info'
-      );
+  const addSystemLog = (level: SystemLog['level'], action: string, message: string, statusCode?: number) => {
+      const newLog: SystemLog = {
+          id: `sys_${Date.now()}`,
+          level,
+          action,
+          message,
+          timestamp: new Date().toISOString(),
+          statusCode,
+          ip: '10.0.0.1'
+      };
+      setSystemLogs(prev => [newLog, ...prev]);
   };
 
-  const openRejectDialog = (id: string) => {
-      setRejectDialog({ isOpen: true, propertyId: id, reason: '' });
+  // --- IAM HANDLERS & EMERGENCY FUNCTIONS ---
+
+  const handleIamEmergencyAction = (type: 'reset_pass' | 'block' | 'unblock' | 'offboard', user: User) => {
+      setIamEmergency({ isOpen: true, type, user });
+      setEmergencyReason('');
+      setBlockType('session');
   };
 
-  const confirmRejection = () => {
-      if (!rejectDialog.reason.trim()) {
-          alert("A justificação é obrigatória para rejeitar um imóvel. O proprietário precisa saber o motivo.");
-          return;
+  const executeEmergencyAction = () => {
+      const { type, user } = iamEmergency;
+      if (!user || !type) return;
+
+      if (type === 'reset_pass') {
+          // Trigger External Action via Prop
+          // In reality this might generate a temp password and email it.
+          const tempPass = Math.random().toString(36).slice(-8).toUpperCase();
+          // We can't actually change the password on the User object here without extending the type, 
+          // but we can log the action and simulate the "Force Logout" effect by updating the accountStatus momentarily or relying on the backend.
+          // For Kiá Connect, we update the user status if needed, but primarily log it.
+          addAuditLog(
+              'IAM_FORCE_PASSWORD_RESET', 
+              user.id, 
+              `Sessões invalidadas. Credencial temporária enviada para ${user.email}.`, 
+              'SUCCESS'
+          );
+          alert(`Sessão invalidada com sucesso. Nova senha temporária enviada ao utilizador: ${tempPass}`);
       }
-      
-      onUpdateProperty(rejectDialog.propertyId, { 
-          status: 'rejected', 
-          rejectionReason: rejectDialog.reason 
-      });
-      
-      // Simulate sending notification
-      alert(`Imóvel rejeitado com sucesso. Uma notificação com o motivo foi enviada ao proprietário.`);
-      
-      setRejectDialog({ isOpen: false, propertyId: '', reason: '' });
+
+      if (type === 'block') {
+          const newStatus = blockType === 'fraud' ? 'suspended_legal' : 'blocked';
+          const logMsg = blockType === 'fraud' 
+              ? `Bloqueio por FRAUDE. Motivo: ${emergencyReason}` 
+              : `Bloqueio de SESSÃO. Motivo: ${emergencyReason}`;
+          
+          // Kiá Connect: Update global state
+          onUpdateUser(user.id, { accountStatus: newStatus }, logMsg);
+          addAuditLog('IAM_BLOCK_USER', user.id, logMsg, blockType === 'fraud' ? 'WARNING' : 'SUCCESS');
+      }
+
+      if (type === 'unblock') {
+          if (!emergencyReason) {
+              alert("Justificativa obrigatória para desbloqueio.");
+              return;
+          }
+          // Kiá Connect: Update global state
+          onUpdateUser(user.id, { accountStatus: 'active' }, `Desbloqueio: ${emergencyReason}`);
+          addAuditLog('IAM_UNBLOCK_USER', user.id, `Desbloqueio manual. Justificativa: ${emergencyReason}`, 'WARNING');
+      }
+
+      if (type === 'offboard') {
+          // Offboarding logic: Block + Rename to deactivate
+          onUpdateUser(user.id, { accountStatus: 'blocked', name: `[DESATIVADO] ${user.name}` }, 'Offboarding de Staff');
+          addAuditLog('IAM_OFFBOARDING_STAFF', user.id, `Colaborador desativado permanentemente. Sessões mortas.`, 'SUCCESS');
+      }
+
+      setIamEmergency({ isOpen: false, type: null, user: null });
   };
 
-  const handleTransactionAction = (id: string, action: 'confirm' | 'reject') => {
+  // IAM: Create & Edit Handlers
+  const openCreateUserModal = () => {
+      setIamFormData({ name: '', email: '', role: 'collaborator', justification: '' });
+      setIamModal({ isOpen: true, type: 'create' });
+  };
+
+  const openEditRoleModal = (user: User) => {
+      setIamFormData({ name: user.name, email: user.email, role: user.role, justification: '' });
+      setIamModal({ isOpen: true, type: 'edit_role', user });
+  };
+
+  const handleIamSubmit = () => {
+      if (iamModal.type === 'create') {
+          // Create Logic (Simulated - ideally should call a prop onAddUser)
+          // For now we just alert as full create flow isn't in the prompt scope for "Kiá Connect" integration actions
+          alert("Funcionalidade de criação de utilizador interno simulada.");
+      } else {
+          // Edit Role
+          if (!iamModal.user) return;
+          if (!iamFormData.justification || iamFormData.justification.length < 10) {
+              alert("A justificativa de auditoria é obrigatória e deve ter detalhe suficiente.");
+              return;
+          }
+          
+          // Kiá Connect: Sync role change
+          onUpdateUser(iamModal.user.id, { role: iamFormData.role }, `Alteração de Role: ${iamFormData.justification}`);
+          
+          addAuditLog(
+              'IAM_CHANGE_PERMISSION', 
+              iamModal.user.id, 
+              `Role alterada de ${iamModal.user.role} para ${iamFormData.role}. Justificativa: ${iamFormData.justification}`, 
+              'WARNING'
+          );
+      }
+      setIamModal({ isOpen: false, type: 'create' });
+  };
+
+  // --- IT HANDLERS ---
+  const handlePurgeCache = () => {
       triggerCriticalAction(
-          'Reconciliação Financeira',
-          'Confirma que recebeu este montante na conta bancária da empresa? Esta ação é irreversível.',
+          'Limpar Cache Global (CDN)',
+          'Isto irá limpar o cache de imagens e assets estáticos em todos os pontos de presença. Pode causar lentidão temporária. Confirmar?',
           () => {
-             setTransactions(prev => prev.map(t => 
-                t.id === id ? { ...t, status: action === 'confirm' ? 'completed' : 'failed' } : t
-            ));
+              alert("Cache invalidado com sucesso. A propagação pode demorar 2 minutos.");
+              addSystemLog('info', 'CACHE_PURGE', 'Global CDN cache cleared manually by admin.');
           },
           'warning'
       );
   };
 
-  const handleEscrowAction = (id: string, action: 'release' | 'refund', amount: number) => {
-      const isRelease = action === 'release';
-      triggerCriticalAction(
-          isRelease ? 'Libertar Fundos (Proprietário)' : 'Reembolsar (Inquilino)',
-          isRelease 
-            ? `Vai transferir ${new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(amount)} para o proprietário. A comissão Arrendaki já foi deduzida. Confirmar?`
-            : `Vai devolver a totalidade do valor ao inquilino. Esta ação cancela a transação garantida.`,
-          () => {
-              setTransactions(prev => prev.map(t => 
-                  t.id === id ? { ...t, status: isRelease ? 'released' : 'refunded' } : t
-              ));
-          },
-          isRelease ? 'info' : 'warning'
-      );
+  const handleSimulatePayment = () => {
+      alert("Ambiente Sandbox: Transação simulada de 3.000 AOA criada. Verificar logs.");
+      addSystemLog('info', 'PAYMENT_SIMULATION', 'Mock transaction 3000 AOA executed in sandbox.', 200);
   };
 
-  const handleGenerateInvoice = (transaction: Transaction) => {
-      alert(`A gerar Fatura Pro-forma #${transaction.id} para ${transaction.userName}... Download iniciado.`);
+  // --- Handlers for Financial Security (New) ---
+  const handleRequestVTTEdit = (txId: string) => {
+      setEditingVttId(txId);
+      setTempVttValue('');
   };
 
-  const exportToCSV = () => {
-      const headers = ["ID", "Tipo", "Valor", "Moeda", "Estado", "Data", "Utilizador", "Propriedade", "Referencia"];
-      
-      const filteredData = transactions.filter(t => {
-          const matchType = reportType === 'all' || t.type === reportType;
-          // Simple date filtering (mock logic)
-          const matchDate = (!reportStartDate || t.date >= reportStartDate) && (!reportEndDate || t.date <= reportEndDate);
-          return matchType && matchDate;
-      });
-
-      const rows = filteredData.map(t => [
-          t.id, 
-          t.type, 
-          t.amount, 
-          t.currency, 
-          t.status, 
-          t.date, 
-          t.userName || t.userId, 
-          t.propertyTitle || t.propertyId,
-          t.reference
-      ].join(","));
-
-      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `relatorio_arrendaki_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-  };
-
-  const exportToPDF = () => {
-      alert("A gerar PDF com todas as faturas selecionadas... (Simulação)");
-  };
-
-  const handleProcessVerification = (action: 'approve' | 'reject' | 'review_needed') => {
-      if (!inspectingRequest) return;
-
-      if ((action === 'reject' || action === 'review_needed') && !verificationActionNote.trim()) {
-          alert("É obrigatório adicionar uma nota justificativa para esta ação.");
+  const submitVTTRequest = (txId: string) => {
+      const val = parseFloat(tempVttValue);
+      if (isNaN(val) || val <= 0) {
+          alert('Valor inválido.');
           return;
       }
 
-      const updatedRequest: VerificationRequest = {
-          ...inspectingRequest,
-          status: action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'review_needed',
-          reviewedBy: currentUserRole,
-          reviewedAt: new Date().toISOString(),
-          reviewNotes: verificationActionNote
-      };
-
-      // Update the queue state
-      setVerificationQueue(prev => prev.map(req => req.id === inspectingRequest.id ? updatedRequest : req));
-
-      // Business Logic: If approved, verify the user or property
-      if (action === 'approve') {
-          if (inspectingRequest.type === 'identity') {
-              // Mark user as verified
-              setUsersList(prev => prev.map(u => 
-                  u.id === inspectingRequest.userId 
-                  ? { ...u, isIdentityVerified: true } 
-                  : u
-              ));
-              alert(`Documento aprovado. O utilizador ${inspectingRequest.userId} agora tem o selo Kiá Verify.`);
-          } else if (inspectingRequest.type === 'property_ownership') {
-              // In a real app, we'd link this to a specific property.
-              // For now, we simulate success.
-              alert(`Documento de propriedade aprovado.`);
-          }
-      }
-
-      setInspectingRequest(null);
-      setVerificationActionNote('');
+      setFinanceTransactions(prev => prev.map(tx => 
+          tx.id === txId 
+          ? { 
+              ...tx, 
+              vttEditRequest: { 
+                  active: true, 
+                  newVtt: val, 
+                  approvals: { analyst: false, legal: false, finance: false } 
+              } 
+            } 
+          : tx
+      ));
+      setEditingVttId(null);
+      addAuditLog('REQUEST_VTT_CHANGE', txId, `Pedido de alteração de VTT para ${val} iniciado.`, 'WARNING');
   };
 
-  const handleResolveAudit = (id: string, action: 'confirm_violation' | 'false_positive') => {
-      triggerCriticalAction(
-          action === 'confirm_violation' ? 'Confirmar Violação' : 'Marcar como Falso Positivo',
-          action === 'confirm_violation' ? 'Esta ação confirmará que o utilizador tentou contornar a plataforma.' : 'O alerta será removido e o chat marcado como seguro.',
-          () => {
-              setAuditChats(prev => prev.filter(c => c.id !== id));
-              setViewingChatLog(null);
-          },
-          action === 'confirm_violation' ? 'warning' : 'info'
-      );
-  };
-
-  const handleToggleUserStatus = (userId: string, currentStatus: string) => {
-      const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
-      triggerCriticalAction(
-          newStatus === 'suspended' ? 'Suspender Utilizador' : 'Reativar Utilizador',
-          newStatus === 'suspended' ? 'O utilizador perderá acesso imediato à plataforma. Tem a certeza?' : 'O acesso do utilizador será restaurado.',
-          () => {
-              setUsersList(prev => prev.map(u => {
-                  if (u.id === userId) return { ...u, status: newStatus };
-                  return u;
-              }));
-              if (editingUser && editingUser.id === userId) {
-                  setEditingUser(prev => prev ? { ...prev, status: newStatus as any } : null);
-              }
-              if (viewingUser && viewingUser.id === userId) {
-                  setViewingUser(prev => prev ? { ...prev, status: newStatus as any } : null);
-              }
-          },
-          newStatus === 'suspended' ? 'danger' : 'warning'
-      );
-  };
-
-  const handleStartContact = (user: User) => {
-      alert(`A iniciar chat seguro com ${user.name}... (Simulação)`);
-  };
-
-  const handleDeletePost = (id: string) => {
-    triggerCriticalAction(
-        'Eliminar Artigo', 
-        'Esta ação não pode ser desfeita. Tem a certeza que deseja eliminar este artigo do blog?', 
-        () => {
-            setBlogPosts(prev => prev.filter(p => p.id !== id));
-        }, 
-        'danger'
-    );
-  };
-
-  const handleSavePost = (status: 'draft' | 'pending_approval' | 'published') => {
-     if(!currentPost.title) return alert("O título é obrigatório");
-     
-     if (currentPost.id) {
-        // Editing existing
-        setBlogPosts(prev => prev.map(p => 
-            p.id === currentPost.id 
-            ? { ...p, ...currentPost, status: status } as BlogPost
-            : p
-        ));
-     } else {
-         // Creating new
-         const newPost: BlogPost = {
-             id: Date.now().toString(),
-             title: currentPost.title!,
-             author: 'Eu (Admin)',
-             status: status,
-             date: new Date().toLocaleDateString('pt-AO', { day: 'numeric', month: 'short', year: 'numeric' }),
-             excerpt: currentPost.excerpt,
-             image: currentPost.image
-         };
-         setBlogPosts(prev => [newPost, ...prev]);
-     }
-     
-     setShowBlogEditor(false);
-     setCurrentPost({});
-  };
-
-  const handleContractAction = (contractId: string, action: 'terminate' | 'renew') => {
-      triggerCriticalAction(
-          action === 'terminate' ? 'Terminar Contrato' : 'Renovar Contrato',
-          action === 'terminate' 
-            ? 'Esta ação anula legalmente o contrato ativo. Tem a certeza?' 
-            : 'Isto irá estender a validade do contrato por mais 12 meses.',
-          () => {
-              setContracts(prev => prev.map(c => 
-                  c.id === contractId 
-                  ? { 
-                      ...c, 
-                      status: action === 'terminate' ? 'terminated' : 'active',
-                      endDate: action === 'renew' ? '2025-10-01' : c.endDate 
-                    } 
-                  : c
-              ));
-          },
-          action === 'terminate' ? 'danger' : 'info'
-      );
-  };
-
-  const handleSendPushNotification = () => {
-      if(!notifForm.title || !notifForm.message) return alert("Preencha título e mensagem");
-
-      triggerCriticalAction(
-          'Enviar Notificação em Massa',
-          `Esta mensagem será enviada para ${notifForm.target === 'all' ? 'TODOS os utilizadores' : `o grupo: ${notifForm.target.toUpperCase()}`}. Confirma?`,
-          () => {
-              const targetLabel = notifForm.target === 'all' ? 'Todos' : 
-                                  notifForm.target === 'tenant' ? 'Inquilinos' : 
-                                  notifForm.target === 'owner' ? 'Proprietários' : 'Corretores';
+  const handleApproveVTT = (txId: string, role: 'analyst' | 'legal' | 'finance') => {
+      setFinanceTransactions(prev => prev.map(tx => {
+          if (tx.id === txId && tx.vttEditRequest) {
+              const newApprovals = { ...tx.vttEditRequest.approvals, [role]: true };
               
-              const newNotif = {
-                  id: Date.now(),
-                  title: notifForm.title,
-                  message: notifForm.message,
-                  target: targetLabel,
-                  type: notifForm.type,
-                  date: new Date().toISOString().split('T')[0],
-                  status: 'sent'
+              // If all approved, update real VTT
+              if (newApprovals.analyst && newApprovals.legal && newApprovals.finance) {
+                  addAuditLog('FINALIZE_VTT_CHANGE', txId, `VTT alterado de ${tx.vtt} para ${tx.vttEditRequest.newVtt} após aprovação tripla.`, 'SUCCESS');
+                  return {
+                      ...tx,
+                      vtt: tx.vttEditRequest.newVtt,
+                      // Recalculate fee (2.5%)
+                      feeCalculated: tx.vttEditRequest.newVtt * 0.025, 
+                      vttEditRequest: undefined // Clear request
+                  };
+              }
+
+              return {
+                  ...tx,
+                  vttEditRequest: { ...tx.vttEditRequest, approvals: newApprovals }
               };
-              
-              setNotificationHistory([newNotif, ...notificationHistory]);
-              setNotifForm({ title: '', message: '', target: 'all', type: 'info' });
-              alert('Notificação enviada com sucesso!');
+          }
+          return tx;
+      }));
+  };
+
+  const handleLockTransaction = (txId: string) => {
+      triggerCriticalAction(
+          'Congelar Dados Financeiros',
+          'Esta ação é irreversível. O VTT, Receitas e Custos serão trancados permanentemente para auditoria e fecho de contas. Confirmar?',
+          () => {
+              setFinanceTransactions(prev => prev.map(tx => 
+                  tx.id === txId ? { ...tx, isLocked: true } : tx
+              ));
+              addAuditLog('LOCK_FINANCIAL_DATA', txId, 'Transação trancada para fecho contabilístico.', 'SUCCESS');
+          },
+          'danger'
+      );
+  };
+
+  const handleCrossCheckPayment = (txId: string) => {
+      // Simulate checking bank API
+      setTimeout(() => {
+          const mockHash = `SHA:${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+          setFinanceTransactions(prev => prev.map(tx => 
+              tx.id === txId ? { ...tx, paymentHash: mockHash } : tx
+          ));
+          addAuditLog('PAYMENT_CROSS_CHECK', txId, `Hash gerado: ${mockHash}. Valor validado com Banco.`, 'SUCCESS');
+      }, 1000);
+  };
+
+  // --- Handlers for Contract Engine ---
+  const handleEditClause = (clause: LegalClause) => {
+      setEditingClause(clause);
+      setEditorTitle(clause.title);
+      setEditorContent(clause.content);
+  };
+
+  const handleSaveDraftClause = () => {
+      if (!editingClause) return;
+      const nextVersion = `${parseFloat(editingClause.version).toFixed(1)}-draft`;
+      
+      setLegalClauses(prev => prev.map(c => 
+          c.id === editingClause.id ? { 
+              ...c, 
+              title: editorTitle, 
+              content: editorContent, 
+              status: 'draft', 
+              version: nextVersion,
+              lastUpdated: new Date().toISOString().split('T')[0]
+          } : c
+      ));
+      
+      addAuditLog('EDIT_CLAUSE_DRAFT', editingClause.id, `Rascunho salvo: ${nextVersion}`, 'SUCCESS');
+      setEditingClause(null);
+  };
+
+  const handlePublishClause = () => {
+      if (!editingClause) return;
+      // Increment version number
+      const currentVer = parseFloat(editingClause.version);
+      const nextVer = (currentVer + 0.1).toFixed(1);
+
+      triggerCriticalAction(
+          'Aprovar e Publicar Cláusula',
+          `Esta ação irá atualizar o Motor de Contratos (IA) com a versão ${nextVer}. Certifique-se que não existem impedimentos legais.`,
+          () => {
+              setLegalClauses(prev => prev.map(c => 
+                  c.id === editingClause.id ? { 
+                      ...c, 
+                      title: editorTitle, 
+                      content: editorContent, 
+                      status: 'approved', 
+                      version: nextVer,
+                      approvedBy: currentUserRole,
+                      lastUpdated: new Date().toISOString().split('T')[0]
+                  } : c
+              ));
+              addAuditLog('PUBLISH_CLAUSE', editingClause.id, `Versão ${nextVer} aprovada e publicada.`, 'SUCCESS');
+              setEditingClause(null);
           },
           'info'
       );
   };
 
-  const handleDownloadContract = (contractId: string) => {
-      alert(`A transferir contrato ${contractId}... (Simulação de PDF)`);
+  // --- Handlers for Forensic Analysis ---
+  const handleViewForensics = (alert: LegalAlert) => {
+      setSelectedAlert(alert);
   };
 
-  // Blog File Handlers
-  const handleBlogFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
-      if (e.target.files && e.target.files[0]) {
-          const file = e.target.files[0];
-          const objectUrl = URL.createObjectURL(file);
-          if (type === 'image') {
-              setCurrentPost(prev => ({ ...prev, image: objectUrl }));
-          } else {
-              setCurrentPost(prev => ({ ...prev, video: objectUrl }));
-          }
+  const handleSuspendTransaction = (alertId: string, userId: string, txId?: string) => {
+    triggerCriticalAction(
+        'Suspender Transação',
+        'Isto irá bloquear os fundos em Escrow e impedir o fecho do contrato. Confirmar?',
+        () => {
+            setLegalAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status: 'suspended_transaction' } : a));
+            if (txId) {
+                setTransactions(prev => prev.map(t => t.id === txId ? { ...t, status: 'suspended_fraud' } : t));
+            }
+            addAuditLog('SUSPEND_TRANSACTION', txId || 'N/A', `Transação suspensa devido a alerta ${alertId}`, 'WARNING');
+        },
+        'danger'
+    );
+  };
+
+  // --- NEW ACTIONS FOR SUPERVISION ---
+  const handleUnilateralSuspension = (targetUserId: string) => {
+      triggerCriticalAction(
+          'Suspensão Unilateral (Jurídica)',
+          'Esta ação anula qualquer estado anterior e bloqueia definitivamente o utilizador e suas transações ativas. Notificação legal (SMS/Email) será enviada às partes.',
+          () => {
+              // Kiá Connect: Update User
+              onUpdateUser(targetUserId, { accountStatus: 'suspended_legal' }, 'Suspensão Unilateral pelo PCC');
+              addAuditLog('LEGAL_SUSPENSION_UNILATERAL', targetUserId, 'Suspensão total decretada pelo PCC.', 'WARNING');
+          },
+          'danger'
+      );
+  };
+
+  const handleUnlockWithRestrictions = (targetUserId: string) => {
+      triggerCriticalAction(
+          'Desbloqueio Condicional',
+          'O utilizador será desbloqueado, mas com limite de transação de 100.000 AOA e monitorização ativa.',
+          () => {
+              onUpdateUser(targetUserId, { accountStatus: 'active' }, 'Desbloqueio Condicional');
+              addAuditLog('LEGAL_UNLOCK_RESTRICTED', targetUserId, 'Desbloqueio condicional aplicado.', 'SUCCESS');
+          },
+          'warning'
+      );
+  };
+
+  const handleDownloadLegalReport = (targetUserId: string) => {
+      alert('A gerar relatório PDF certificado...');
+      addAuditLog('GENERATE_LEGAL_REPORT', targetUserId, 'Relatório forense gerado.', 'SUCCESS');
+  };
+
+  const handleSearchUser = () => {
+      const found = users.find(u => u.email.includes(supervisionQuery) || u.name.includes(supervisionQuery) || u.id === supervisionQuery);
+      if (found) {
+          setSupervisionUser(found);
+      } else {
+          alert('Utilizador não encontrado.');
+          setSupervisionUser(null);
       }
   };
 
-  // --- RENDERERS ---
+  // --- FINANCE HANDLERS (UPDATED for Double Approval) ---
+  const handleApproveRefundStep = (refundId: string, currentStage: string) => {
+      if (currentStage === 'analyst_review') {
+          // STEP 1: Analyst Validation
+          triggerCriticalAction(
+              'Validação Inicial (Analista)',
+              'Confirma que a justificação é válida e a documentação está completa? O pedido será enviado para o Departamento Jurídico.',
+              () => {
+                  setRefundQueue(prev => prev.map(r => r.id === refundId ? { ...r, stage: 'legal_review' } : r));
+                  addAuditLog('REFUND_VALIDATION_ANALYST', refundId, 'Validação de suporte e documentação concluída. Encaminhado para Jurídico.', 'SUCCESS');
+              },
+              'info'
+          );
+      } else if (currentStage === 'legal_review') {
+          // STEP 2: Legal/Finance Approval
+          triggerCriticalAction(
+              'Aprovação Final (Jurídico/Finanças)',
+              'Esta ação autoriza o desembolso financeiro imediato. Certifique-se que não existem impedimentos legais.',
+              () => {
+                  setRefundQueue(prev => prev.map(r => r.id === refundId ? { ...r, stage: 'approved' } : r));
+                  addAuditLog('REFUND_APPROVAL_LEGAL', refundId, 'Autorização de desembolso concedida.', 'SUCCESS');
+                  
+                  // STEP 3: System Processing Simulation
+                  setTimeout(() => {
+                       addAuditLog('SYSTEM_PAYMENT_EXECUTION', refundId, 'Ordem de pagamento enviada ao banco. Ref: PAY-' + Date.now(), 'SUCCESS');
+                  }, 1000);
+              },
+              'warning'
+          );
+      }
+  };
 
-  const renderOperations = () => {
-    return (
-      <div className="space-y-6 animate-fadeIn">
-        {/* Sub Navigation */}
-        <div className="flex space-x-4 border-b border-gray-200 pb-1 overflow-x-auto">
-           {hasPermission('view_dashboard') && (
-              <button 
-                  onClick={() => setActiveSubTab('dashboard')}
-                  className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeSubTab === 'dashboard' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                  Dashboard
-              </button>
-           )}
-           {hasPermission('manage_properties') && (
-              <button 
-                  onClick={() => setActiveSubTab('properties')}
-                  className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeSubTab === 'properties' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                  Imóveis
-              </button>
-           )}
-           {hasPermission('manage_users') && (
-              <button 
-                  onClick={() => setActiveSubTab('users')}
-                  className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeSubTab === 'users' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                  Utilizadores
-              </button>
-           )}
-           {hasPermission('manage_content') && (
-              <button 
-                  onClick={() => setActiveSubTab('blog')}
-                  className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeSubTab === 'blog' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                  Blog & Conteúdo
-              </button>
-           )}
-        </div>
+  const handleSearchClosureUser = () => {
+      const found = users.find(u => u.email.includes(closureSearch) || u.name.includes(closureSearch));
+      if (found) {
+          setClosureTarget(found);
+          setClosureReportGenerated(false);
+      } else {
+          alert("Utilizador não encontrado para fecho de conta.");
+          setClosureTarget(null);
+      }
+  };
 
-        {activeSubTab === 'dashboard' && (
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-               <StatCard title="Total Imóveis" value={properties.length} icon={Home} color="blue" trend="+5%" trendDirection="up" />
-               <StatCard title="Utilizadores" value={usersList.length} icon={Users} color="purple" trend="+12" trendDirection="up" />
-               <StatCard title="Contratos Ativos" value={contracts.filter(c => c.status === 'active').length} icon={FileText} color="green" />
-               <StatCard title="Receita (Mês)" value="Kz 4.2M" icon={DollarSign} color="orange" trend="+8%" trendDirection="up" />
-           </div>
-        )}
+  const handleGenerateLiquidationReport = () => {
+      if(!closureTarget) return;
+      alert("Relatório de Liquidação Final (LBC) gerado e pronto para download.");
+      addAuditLog('GENERATE_LIQUIDATION_REPORT', closureTarget.id, 'Relatório de saldos e quitação gerado para fecho de conta.', 'SUCCESS');
+      setClosureReportGenerated(true);
+  };
 
-        {activeSubTab === 'properties' && (
-            <div className="space-y-4">
-               {/* Filters */}
-               <div className="flex justify-between items-center mb-4">
-                  <div className="flex space-x-2">
-                      <button onClick={() => setPropertyFilter('pending')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${propertyFilter === 'pending' ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50'}`}>Pendentes</button>
-                      <button onClick={() => setPropertyFilter('all')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${propertyFilter === 'all' ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50'}`}>Todos</button>
-                  </div>
-               </div>
+  const handleCloseAccount = () => {
+      if(!closureTarget) return;
+      triggerCriticalAction(
+          'Encerrar Conta Definitivamente',
+          'Isto irá liquidar saldos pendentes, arquivar dados conforme a LBC e desativar o acesso. Ação legal mandatória.',
+          () => {
+              onUpdateUser(closureTarget.id, { accountStatus: 'blocked', name: `[ENCERRADO] ${closureTarget.name}` }, 'Fecho de Conta (Solicitado)');
+              alert(`Conta de ${closureTarget.name} encerrada e relatório de liquidação arquivado.`);
+              addAuditLog('ACCOUNT_CLOSURE_FINAL', closureTarget.id, 'Conta encerrada, saldos liquidados e relatório arquivado.', 'WARNING');
+              setClosureTarget(null);
+              setClosureSearch('');
+              setClosureReportGenerated(false);
+          },
+          'danger'
+      );
+  };
 
-               {/* List */}
-               <div className="space-y-3">
-                  {properties
-                    .filter(p => propertyFilter === 'pending' ? p.status === 'pending' : true)
-                    .map(property => (
-                      <div key={property.id} className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
-                          <img src={property.images[0]} alt="" className="w-20 h-20 rounded-lg object-cover" />
-                          <div className="flex-1">
-                              <div className="flex justify-between">
-                                  <h4 className="font-bold text-gray-900">{property.title}</h4>
-                                  <span className={`px-2 py-0.5 text-xs rounded-full font-bold uppercase ${
-                                      property.status === 'available' ? 'bg-green-100 text-green-800' :
-                                      property.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                      property.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-                                  }`}>{property.status}</span>
-                              </div>
-                              <p className="text-sm text-gray-500">{property.location.municipality}, {property.location.province}</p>
-                              <p className="text-sm font-bold text-brand-600">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: property.currency }).format(property.price)}</p>
-                          </div>
-                          <div className="flex space-x-2 w-full md:w-auto">
-                              {property.status === 'pending' && (
-                                  <>
-                                      <button onClick={() => handlePropertyAction(property.id, 'approve')} className="flex-1 md:flex-none px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700">Aprovar</button>
-                                      <button onClick={() => openRejectDialog(property.id)} className="flex-1 md:flex-none px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700">Rejeitar</button>
-                                  </>
-                              )}
-                              {property.status === 'available' && (
-                                  <button onClick={() => handlePropertyAction(property.id, 'archive')} className="flex-1 md:flex-none px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">Arquivar</button>
-                              )}
-                          </div>
-                      </div>
-                  ))}
-                  {properties.filter(p => propertyFilter === 'pending' ? p.status === 'pending' : true).length === 0 && (
-                      <div className="text-center py-10 text-gray-500">Nenhum imóvel encontrado.</div>
-                  )}
-               </div>
+  const openRejectDialog = (propertyId: string) => {
+    setRejectDialog({ isOpen: true, propertyId, reason: '' });
+  };
+
+  const confirmRejection = () => {
+    if (!rejectDialog.propertyId || !rejectDialog.reason) return;
+    
+    // Kiá Connect: Update Property Status via Prop -> Triggers Notification in App.tsx
+    onUpdateProperty(rejectDialog.propertyId, { 
+        status: 'rejected', 
+        rejectionReason: rejectDialog.reason 
+    });
+    
+    addAuditLog('REJECT_PROPERTY', rejectDialog.propertyId, `Rejeitado: ${rejectDialog.reason}`, 'SUCCESS');
+    
+    setRejectDialog({ isOpen: false, propertyId: '', reason: '' });
+    setViewingProperty(null); // Close modal
+  };
+
+  const handlePropertyAction = (propertyId: string, action: 'approve' | 'reject') => {
+    if (action === 'approve') {
+        triggerCriticalAction(
+            'Aprovar Imóvel',
+            'O imóvel ficará disponível para pagamento da taxa de publicação pelo proprietário. Confirmar?',
+            () => {
+                // Kiá Connect: Update Property Status via Prop -> Triggers Notification in App.tsx
+                onUpdateProperty(propertyId, { status: 'approved_waiting_payment' });
+                addAuditLog('APPROVE_PROPERTY', propertyId, 'Imóvel aprovado, aguardando pagamento.', 'SUCCESS');
+                setViewingProperty(null);
+            },
+            'info'
+        );
+    } else {
+         openRejectDialog(propertyId);
+    }
+  };
+
+  // --- COMPLIANCE / KIA VERIFY HANDLERS ---
+
+  const handleOpenVerification = (req: VerificationRequest) => {
+      setSelectedVerification(req);
+      setDocumentRevealed(false);
+      setFieldValidation({ name: 'idle', bi: 'idle', address: 'idle', face: 'idle' });
+      setVerificationNote('');
+      // Check for blacklist match (Mock)
+      if(req.userId === 'usr_suspicious_99') {
+          alert("ALERTA: NIF detetado na lista negra de fraudes anteriores.");
+      }
+  };
+
+  const handleRevealDocument = () => {
+      if (!selectedVerification) return;
+      setDocumentRevealed(true);
+      addAuditLog('VIEW_SECURE_DOCUMENT', selectedVerification.id, `Documento ${selectedVerification.type} visualizado.`, 'SUCCESS');
+  };
+
+  const toggleFieldValidation = (field: string) => {
+      setFieldValidation(prev => ({
+          ...prev,
+          [field]: prev[field] === 'valid' ? 'invalid' : 'valid'
+      }));
+  };
+
+  const handleVerificationDecision = (decision: 'approve' | 'reject' | 'review') => {
+      if (!selectedVerification) return;
+
+      const actionMap = {
+          approve: { title: 'Aprovar Conformidade', desc: 'Isto irá validar o utilizador e permitir a emissão de contratos. Confirmar?' },
+          reject: { title: 'Rejeitar por Falha Grave', desc: 'O utilizador será bloqueado e marcado por fraude. Notificação legal enviada.' },
+          review: { title: 'Solicitar Revisão', desc: 'A transação será suspensa até o utilizador corrigir os documentos.' }
+      };
+
+      triggerCriticalAction(
+          actionMap[decision].title,
+          actionMap[decision].desc,
+          () => {
+              // Update Queue
+              setVerificationQueue(prev => prev.map(v => 
+                  v.id === selectedVerification.id 
+                  ? { ...v, status: decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'review_needed', reviewNotes: verificationNote } 
+                  : v
+              ));
+
+              // Kiá Connect Protocol: Trigger Notification if status changes
+              // (In real app, queue update would trigger an event)
+              if (decision === 'approve') {
+                  // Protocol Action: Approve Dossier
+                  onUpdateUser(selectedVerification.userId, { isIdentityVerified: true, accountStatus: 'active' }, 'Aprovação do Dossiê Kiá Verify');
+              } else if (decision === 'reject') {
+                  onUpdateUser(selectedVerification.userId, { accountStatus: 'suspended_legal' }, 'Rejeição Documental Grave');
+              }
+
+              // Log
+              addAuditLog(
+                  `VERIFY_DECISION_${decision.toUpperCase()}`, 
+                  selectedVerification.userId, 
+                  `Decisão: ${decision}. Notas: ${verificationNote}`, 
+                  decision === 'approve' ? 'SUCCESS' : 'WARNING'
+              );
+
+              // If Reject, Create Alert
+              if (decision === 'reject') {
+                  setLegalAlerts(prev => [{
+                      id: `alert_${Date.now()}`,
+                      severity: 'critical',
+                      type: 'document_fraud',
+                      targetUser: selectedVerification.userId,
+                      targetUserName: 'Utilizador Rejeitado',
+                      description: `Rejeição por fraude documental: ${verificationNote}`,
+                      timestamp: new Date().toISOString(),
+                      status: 'open'
+                  }, ...prev]);
+              }
+
+              setSelectedVerification(null);
+          },
+          decision === 'approve' ? 'info' : decision === 'reject' ? 'danger' : 'warning'
+      );
+  };
+
+  // --- BLOG / CMS HANDLERS ---
+  const handleOpenPostEditor = (post?: BlogPost) => {
+    if (post) {
+      setEditingPost(JSON.parse(JSON.stringify(post))); // Deep copy
+    } else {
+      // Create new post template
+      const d = new Date();
+      const newPost: BlogPost = {
+        id: `post_${Date.now()}`, title: '', subtitle: '', slug: '',
+        author: 'Novo Autor', category: 'news', status: 'draft',
+        date: `${d.getDate()} ${d.toLocaleString('pt-PT', { month: 'short' }).replace('.', '')} ${d.getFullYear()}`,
+        content: '<p>Comece a escrever...</p>', excerpt: ''
+      };
+      setEditingPost(newPost);
+    }
+    setPostRejectionReason('');
+  };
+
+  const handleSavePost = () => {
+    if (!editingPost) return;
+
+    if(editingPost.id.startsWith('post_new')) {
+        onAddBlogPost(editingPost);
+    } else {
+        onUpdateBlogPost(editingPost.id, editingPost);
+    }
+
+    addAuditLog('SAVE_CONTENT_DRAFT', editingPost.id, `Conteúdo '${editingPost.title}' salvo como rascunho.`, 'SUCCESS');
+    setEditingPost(null);
+  };
+
+  const handleSubmitForReview = () => {
+      if(!editingPost) return;
+      onUpdateBlogPost(editingPost.id, { ...editingPost, status: 'pending_legal' });
+      addAuditLog('SUBMIT_CONTENT_REVIEW', editingPost.id, 'Conteúdo submetido para revisão legal.', 'SUCCESS');
+      setEditingPost(null);
+  };
+
+  const handlePublishPost = () => {
+      if(!editingPost) return;
+      onUpdateBlogPost(editingPost.id, { ...editingPost, status: 'published', approvedBy: currentUserRole });
+      addAuditLog('PUBLISH_CONTENT', editingPost.id, 'Conteúdo publicado com sucesso.', 'SUCCESS');
+      setEditingPost(null);
+  };
+  
+  const handleRejectPost = () => {
+      if(!editingPost || !postRejectionReason) {
+          alert('A justificativa de rejeição é obrigatória.');
+          return;
+      }
+      onUpdateBlogPost(editingPost.id, { status: 'rejected', rejectionReason: postRejectionReason });
+      addAuditLog('REJECT_CONTENT', editingPost.id, `Conteúdo rejeitado. Motivo: ${postRejectionReason}`, 'WARNING');
+      setEditingPost(null);
+  };
+
+  const filteredBlogPosts = blogPosts.filter(p => {
+      if(blogStatusFilter === 'all') return true;
+      return p.status === blogStatusFilter;
+  });
+
+  const renderOperations = () => (
+    <div className="space-y-6 animate-fadeIn">
+        <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-800">Gestão de Imóveis</h3>
+            <div className="flex space-x-2">
+                <button 
+                    onClick={() => setPropertyFilter('pending')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold ${propertyFilter === 'pending' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 border'}`}
+                >
+                    Pendentes
+                </button>
+                <button 
+                    onClick={() => setPropertyFilter('all')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold ${propertyFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 border'}`}
+                >
+                    Todos
+                </button>
             </div>
-        )}
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 text-gray-600 font-bold uppercase text-xs">
+                    <tr>
+                        <th className="p-4">Imóvel</th>
+                        <th className="p-4">Proprietário</th>
+                        <th className="p-4">Preço</th>
+                        <th className="p-4">Estado</th>
+                        <th className="p-4 text-right">Ação</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                    {properties
+                        .filter(p => propertyFilter === 'pending' ? p.status === 'pending' : true)
+                        .map(p => (
+                        <tr key={p.id} className="hover:bg-gray-50">
+                            <td className="p-4">
+                                <div className="flex items-center space-x-3">
+                                    <img src={p.images[0]} className="w-10 h-10 rounded object-cover" alt="" />
+                                    <div>
+                                        <p className="font-bold text-gray-900">{p.title}</p>
+                                        <p className="text-xs text-gray-500">{p.location.municipality}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="p-4 text-gray-600">{p.ownerId}</td>
+                            <td className="p-4 font-mono font-bold">{p.price.toLocaleString()} {p.currency}</td>
+                            <td className="p-4">
+                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                                    p.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                    p.status === 'available' ? 'bg-green-100 text-green-800' :
+                                    'bg-gray-100 text-gray-800'
+                                }`}>
+                                    {p.status}
+                                </span>
+                            </td>
+                            <td className="p-4 text-right">
+                                <button 
+                                    onClick={() => setViewingProperty(p)}
+                                    className="text-brand-600 hover:text-brand-800 font-bold text-xs"
+                                >
+                                    Gerir
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </div>
+  );
 
-        {activeSubTab === 'users' && (
-            <div className="space-y-4">
-                 {/* Simplified User List */}
-                 {usersList.map(u => (
-                     <div key={u.id} className="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center">
-                         <div className="flex items-center space-x-3">
-                             <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-bold">
-                                 {u.name.charAt(0)}
-                             </div>
-                             <div>
-                                 <h4 className="font-bold text-gray-900">{u.name}</h4>
-                                 <p className="text-xs text-gray-500">{u.role} • {u.email}</p>
-                             </div>
+  const renderFinance = () => (
+    <div className="space-y-6 animate-fadeIn">
+         <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto pb-1 mb-4">
+             {['vtt_dashboard', 'fee_audit', 'disputes', 'costs', 'account_closure'].map(tab => (
+                 <button 
+                     key={tab}
+                     onClick={() => setFinanceTab(tab as any)}
+                     className={`px-4 py-2 text-sm font-bold whitespace-nowrap ${financeTab === tab ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-500 hover:text-gray-800'}`}
+                 >
+                     {tab.replace('_', ' ').toUpperCase()}
+                 </button>
+             ))}
+         </div>
+
+         {financeTab === 'vtt_dashboard' && (
+             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                 <h3 className="font-bold text-lg mb-4">Dashboard VTT (Valor Total de Transação)</h3>
+                 <table className="w-full text-sm text-left">
+                     <thead>
+                         <tr className="text-xs text-gray-500 uppercase border-b">
+                             <th className="py-2">Ref Transação</th>
+                             <th className="py-2">VTT (Base)</th>
+                             <th className="py-2">Fee (2.5%)</th>
+                             <th className="py-2">Estado</th>
+                             <th className="py-2 text-right">Ações</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+                         {financeTransactions.map(tx => (
+                             <tr key={tx.id} className="border-b last:border-0 hover:bg-gray-50">
+                                 <td className="py-3 font-mono">{tx.id}</td>
+                                 <td className="py-3 font-bold">
+                                     {editingVttId === tx.id ? (
+                                         <div className="flex items-center space-x-2">
+                                             <input 
+                                                 type="number" 
+                                                 className="w-24 p-1 border rounded"
+                                                 value={tempVttValue}
+                                                 onChange={e => setTempVttValue(e.target.value)}
+                                             />
+                                             <button onClick={() => submitVTTRequest(tx.id)} className="text-green-600"><CheckCircle className="w-4 h-4"/></button>
+                                         </div>
+                                     ) : (
+                                         <span>{tx.vtt.toLocaleString()} AOA</span>
+                                     )}
+                                     {tx.vttEditRequest?.active && (
+                                         <span className="ml-2 text-[10px] bg-yellow-100 text-yellow-800 px-1 rounded">Em Revisão</span>
+                                     )}
+                                 </td>
+                                 <td className="py-3 text-green-600">{tx.feeCalculated.toLocaleString()} AOA</td>
+                                 <td className="py-3">
+                                     {tx.isLocked ? <Lock className="w-4 h-4 text-red-500" /> : <Unlock className="w-4 h-4 text-green-500" />}
+                                 </td>
+                                 <td className="py-3 text-right space-x-2">
+                                     {!tx.isLocked && (
+                                         <>
+                                             <button onClick={() => handleRequestVTTEdit(tx.id)} className="text-blue-600 hover:underline text-xs">Editar VTT</button>
+                                             <button onClick={() => handleLockTransaction(tx.id)} className="text-red-600 hover:underline text-xs">Trancar</button>
+                                         </>
+                                     )}
+                                     {tx.vttEditRequest?.active && (
+                                         <div className="flex justify-end space-x-1 mt-1">
+                                             <button onClick={() => handleApproveVTT(tx.id, 'analyst')} disabled={tx.vttEditRequest.approvals.analyst} className={`p-1 rounded ${tx.vttEditRequest.approvals.analyst ? 'bg-green-200' : 'bg-gray-200'}`} title="Analista">A</button>
+                                             <button onClick={() => handleApproveVTT(tx.id, 'legal')} disabled={tx.vttEditRequest.approvals.legal} className={`p-1 rounded ${tx.vttEditRequest.approvals.legal ? 'bg-green-200' : 'bg-gray-200'}`} title="Jurídico">L</button>
+                                             <button onClick={() => handleApproveVTT(tx.id, 'finance')} disabled={tx.vttEditRequest.approvals.finance} className={`p-1 rounded ${tx.vttEditRequest.approvals.finance ? 'bg-green-200' : 'bg-gray-200'}`} title="Finanças">F</button>
+                                         </div>
+                                     )}
+                                 </td>
+                             </tr>
+                         ))}
+                     </tbody>
+                 </table>
+             </div>
+         )}
+         
+         {financeTab === 'disputes' && (
+             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                 <h3 className="font-bold text-lg mb-4">Fila de Reembolsos (Disputas)</h3>
+                 {refundQueue.map(refund => (
+                     <div key={refund.id} className="border-b last:border-0 py-4 flex justify-between items-center">
+                         <div>
+                             <p className="font-bold text-gray-800">{refund.reason}</p>
+                             <p className="text-xs text-gray-500">ID: {refund.id} | TX: {refund.txId} | {refund.amount.toLocaleString()} AOA</p>
+                             <p className="text-xs text-blue-600 mt-1">Estado: {refund.stage.replace('_', ' ').toUpperCase()}</p>
                          </div>
-                         <button 
-                            onClick={() => handleToggleUserStatus(u.id, u.status || 'active')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${u.status === 'suspended' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
-                         >
-                             {u.status === 'suspended' ? 'Suspenso' : 'Ativo'}
-                         </button>
+                         <div>
+                             {refund.stage === 'analyst_review' && (
+                                 <button onClick={() => handleApproveRefundStep(refund.id, 'analyst_review')} className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold">Validar (Analista)</button>
+                             )}
+                             {refund.stage === 'legal_review' && (
+                                 <button onClick={() => handleApproveRefundStep(refund.id, 'legal_review')} className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold">Aprovar Pagamento</button>
+                             )}
+                             {refund.stage === 'approved' && (
+                                 <span className="text-green-600 font-bold text-xs flex items-center"><CheckCircle className="w-4 h-4 mr-1"/> Pago</span>
+                             )}
+                         </div>
                      </div>
                  ))}
-            </div>
-        )}
-        
-        {activeSubTab === 'blog' && (
-             <div className="space-y-4">
-                 <div className="flex justify-between items-center mb-4">
-                     <h3 className="text-lg font-bold">Artigos Publicados</h3>
-                     <button 
-                        onClick={() => { setShowBlogEditor(true); setCurrentPost({}); }}
-                        className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center"
-                     >
-                         <Plus className="w-4 h-4 mr-2" /> Novo Artigo
-                     </button>
+             </div>
+         )}
+
+         {financeTab === 'account_closure' && (
+             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 max-w-2xl">
+                 <h3 className="font-bold text-lg mb-4 text-red-700">Encerramento de Conta & Liquidação (LBC)</h3>
+                 <div className="flex space-x-2 mb-4">
+                     <input 
+                         type="text" 
+                         placeholder="Pesquisar utilizador..." 
+                         className="flex-1 p-2 border rounded"
+                         value={closureSearch}
+                         onChange={e => setClosureSearch(e.target.value)}
+                     />
+                     <button onClick={handleSearchClosureUser} className="bg-gray-800 text-white px-4 py-2 rounded font-bold">Buscar</button>
                  </div>
                  
-                 {showBlogEditor ? (
-                     <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                         <div className="flex justify-between items-center mb-4">
-                             <h4 className="font-bold text-lg">Editor de Conteúdo</h4>
-                             <button onClick={() => setShowBlogEditor(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
+                 {closureTarget && (
+                     <div className="bg-red-50 p-4 rounded border border-red-200 animate-fadeIn">
+                         <p className="font-bold text-gray-900 mb-2">Alvo: {closureTarget.name} ({closureTarget.email})</p>
+                         <p className="text-sm text-gray-600 mb-4">Saldo em Escrow: 0.00 AOA (Verificado)</p>
+                         
+                         <div className="flex space-x-3">
+                             {!closureReportGenerated ? (
+                                 <button onClick={handleGenerateLiquidationReport} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold">1. Gerar LBC</button>
+                             ) : (
+                                 <button onClick={handleCloseAccount} className="bg-red-600 text-white px-4 py-2 rounded text-sm font-bold">2. Encerrar Conta Definitivamente</button>
+                             )}
                          </div>
-                         <div className="space-y-4">
-                             <input 
-                                type="text" 
-                                placeholder="Título do Artigo" 
-                                className="w-full text-xl font-bold border-b border-gray-300 pb-2 focus:outline-none focus:border-brand-500"
-                                value={currentPost.title || ''}
-                                onChange={e => setCurrentPost({...currentPost, title: e.target.value})}
-                             />
-                             <div className="flex space-x-2">
-                                <button className="p-2 border border-gray-300 rounded hover:bg-gray-50 text-gray-600" onClick={() => blogImageInputRef.current?.click()}>
-                                    <ImageIcon className="w-4 h-4" />
-                                </button>
-                                <input type="file" ref={blogImageInputRef} className="hidden" accept="image/*" onChange={(e) => handleBlogFileUpload(e, 'image')} />
-                             </div>
-                             {currentPost.image && <img src={currentPost.image} alt="Preview" className="w-full h-48 object-cover rounded-lg" />}
-                             <textarea 
-                                placeholder="Escreva o conteúdo aqui..." 
-                                className="w-full h-48 p-4 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-brand-500"
-                                value={currentPost.excerpt || ''}
-                                onChange={e => setCurrentPost({...currentPost, excerpt: e.target.value})}
-                             ></textarea>
-                             <div className="flex justify-end space-x-3">
-                                 <button onClick={() => handleSavePost('draft')} className="px-4 py-2 text-gray-600 font-medium">Guardar Rascunho</button>
-                                 <button onClick={() => handleSavePost('published')} className="px-4 py-2 bg-brand-600 text-white font-bold rounded-lg">Publicar</button>
-                             </div>
-                         </div>
-                     </div>
-                 ) : (
-                     <div className="grid grid-cols-1 gap-4">
-                         {blogPosts.map(post => (
-                             <div key={post.id} className="flex bg-white border border-gray-200 rounded-xl p-4 items-center justify-between">
-                                 <div className="flex items-center space-x-4">
-                                     <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden shrink-0">
-                                         {post.image ? <img src={post.image} className="w-full h-full object-cover" /> : <BookOpen className="w-8 h-8 m-auto text-gray-400" />}
-                                     </div>
-                                     <div>
-                                         <h4 className="font-bold text-gray-900 line-clamp-1">{post.title}</h4>
-                                         <div className="flex items-center text-xs text-gray-500 space-x-2 mt-1">
-                                             <span className={`px-2 py-0.5 rounded-full ${post.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                 {post.status === 'published' ? 'Publicado' : 'Rascunho'}
-                                             </span>
-                                             <span>{post.date}</span>
-                                         </div>
-                                     </div>
-                                 </div>
-                                 <div className="flex space-x-2">
-                                     <button onClick={() => { setCurrentPost(post); setShowBlogEditor(true); }} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><Edit className="w-4 h-4" /></button>
-                                     <button onClick={() => handleDeletePost(post.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                                 </div>
-                             </div>
-                         ))}
                      </div>
                  )}
              </div>
-        )}
-      </div>
-    );
-  };
+         )}
+    </div>
+  );
 
-  const renderFinance = () => {
-      // Filter Logic for transactions
-      const feeTransactions = transactions.filter(t => t.type === 'listing_fee' || (t.type !== 'escrow_deposit' && t.amount <= 5000));
-      const escrowTransactions = transactions.filter(t => t.type === 'escrow_deposit');
-
-      // KPIs
-      const totalRevenue = feeTransactions.filter(t => t.status === 'completed').reduce((acc, t) => acc + t.amount, 0);
-      const pendingReconciliation = feeTransactions.filter(t => t.status === 'pending').length;
-      const escrowHeld = escrowTransactions.filter(t => t.status === 'escrow_held').reduce((acc, t) => acc + t.amount, 0);
-
-      return (
-          <div className="space-y-6 animate-fadeIn">
-              
-              {/* Finance Navigation */}
-              <div className="flex space-x-4 border-b border-gray-200 pb-1 overflow-x-auto">
-                  <button onClick={() => setActiveSubTab('dashboard')} className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeSubTab === 'dashboard' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                      Visão Geral
-                  </button>
-                  <button onClick={() => setActiveSubTab('reconciliation')} className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeSubTab === 'reconciliation' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                      Reconciliação (3.000 Kz)
-                  </button>
-                  <button onClick={() => setActiveSubTab('escrow')} className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeSubTab === 'escrow' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                      Gestão de Escrow (2.5%)
-                  </button>
-                  <button onClick={() => setActiveSubTab('reports')} className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeSubTab === 'reports' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                      Relatórios & Exportação
-                  </button>
-              </div>
-
-              {/* FINANCE DASHBOARD TAB */}
-              {activeSubTab === 'dashboard' && (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <StatCard 
-                            title="Receita de Listings" 
-                            value={new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(totalRevenue)} 
-                            icon={DollarSign} 
-                            color="green" 
-                            trend="+15%" 
-                            trendDirection="up" 
-                        />
-                        <StatCard 
-                            title="Valor em Custódia" 
-                            value={new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(escrowHeld)} 
-                            icon={Lock} 
-                            color="blue" 
-                            subtitle="Aguardando fecho de contrato"
-                        />
-                        <StatCard 
-                            title="Pendentes Validação" 
-                            value={pendingReconciliation} 
-                            icon={Activity} 
-                            color="orange" 
-                            subtitle="Taxas de 3.000 Kz"
-                        />
-                    </div>
-                    
-                    {/* Visual Revenue Chart Simulation */}
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                            <PieChart className="w-5 h-5 mr-2 text-gray-500" />
-                            Distribuição de Receita
-                        </h3>
-                        <div className="h-4 bg-gray-100 rounded-full overflow-hidden flex">
-                            <div className="w-[70%] bg-blue-500" title="Escrow (70%)"></div>
-                            <div className="w-[30%] bg-green-500" title="Listings (30%)"></div>
-                        </div>
-                        <div className="flex mt-2 text-xs font-medium text-gray-500 space-x-4">
-                            <span className="flex items-center"><div className="w-2 h-2 bg-blue-500 rounded-full mr-1"></div> Comissões (2.5%)</span>
-                            <span className="flex items-center"><div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div> Taxas Fixas (Listings)</span>
-                        </div>
-                    </div>
-                  </>
-              )}
-
-              {/* RECONCILIATION TAB */}
-              {activeSubTab === 'reconciliation' && (
-                  <div className="space-y-4">
-                      <div className="bg-orange-50 border border-orange-100 p-4 rounded-lg flex items-start">
-                          <AlertCircle className="w-5 h-5 text-orange-600 mr-2 mt-0.5" />
-                          <div>
-                              <h4 className="text-sm font-bold text-orange-800">Reconciliação de Taxas de Listagem</h4>
-                              <p className="text-xs text-orange-700">Verifique os comprovativos de 3.000 AOA via Multicaixa Express ou Referência.</p>
-                          </div>
-                      </div>
-
-                      {feeTransactions.map(t => (
-                          <div key={t.id} className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col md:flex-row justify-between items-center shadow-sm">
-                              <div className="flex items-center mb-3 md:mb-0 w-full md:w-auto">
-                                  <div className={`p-3 rounded-full mr-4 shrink-0 ${t.status === 'completed' ? 'bg-green-100 text-green-600' : t.status === 'pending' ? 'bg-yellow-100 text-yellow-600' : 'bg-red-100 text-red-600'}`}>
-                                      <CreditCard className="w-5 h-5" />
-                                  </div>
-                                  <div>
-                                      <h4 className="font-bold text-gray-900">Taxa de Listagem</h4>
-                                      <p className="text-sm text-gray-500">{t.userName} • {t.date}</p>
-                                      <div className="flex items-center mt-1">
-                                          <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded font-mono mr-2">Ref: {t.reference}</span>
-                                          {t.reference?.startsWith('9') ? <span className="text-[10px] text-blue-600 font-bold">MCX Express</span> : <span className="text-[10px] text-purple-600 font-bold">Referência</span>}
-                                      </div>
-                                  </div>
-                              </div>
-                              <div className="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 mt-3 md:mt-0">
-                                  <span className="font-bold text-gray-800 text-lg">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(t.amount)}</span>
-                                  {t.status === 'pending' ? (
-                                      <div className="flex space-x-2">
-                                          <button onClick={() => handleTransactionAction(t.id, 'confirm')} className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm">Confirmar</button>
-                                          <button onClick={() => handleTransactionAction(t.id, 'reject')} className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100">Rejeitar</button>
-                                      </div>
-                                  ) : (
-                                      <div className="text-right">
-                                          <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${t.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                              {t.status === 'completed' ? 'Pago' : 'Falhou'}
-                                          </span>
-                                          <button onClick={() => handleGenerateInvoice(t)} className="block text-xs text-gray-400 hover:text-brand-500 mt-1 flex items-center justify-end w-full">
-                                              <Download className="w-3 h-3 mr-1" /> Recibo
-                                          </button>
-                                      </div>
-                                  )}
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              )}
-
-              {/* ESCROW TAB */}
-              {activeSubTab === 'escrow' && (
-                  <div className="space-y-4">
-                      <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex items-start">
-                          <Lock className="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
-                          <div>
-                              <h4 className="font-bold text-blue-900 text-sm">Controlo de Fundos em Escrow</h4>
-                              <p className="text-xs text-blue-800 mt-1">
-                                  Estes valores estão na conta bancária do Arrendaki. Só devem ser libertados após a confirmação da assinatura do contrato e entrega das chaves.
-                                  <br/><strong>A comissão de 2.5% é deduzida automaticamente ao libertar.</strong>
-                              </p>
-                          </div>
-                      </div>
-                      
-                      {escrowTransactions.map(t => {
-                          const commission = t.amount * 0.025;
-                          const netOwnerAmount = t.amount - commission;
-
-                          return (
-                              <div key={t.id} className="bg-white border border-gray-200 rounded-xl p-0 overflow-hidden shadow-sm">
-                                  <div className="p-4 flex flex-col md:flex-row justify-between relative">
-                                      {t.status === 'escrow_held' && <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg">EM CUSTÓDIA</div>}
-                                      
-                                      <div>
-                                          <h4 className="font-bold text-gray-900 text-lg">{t.propertyTitle}</h4>
-                                          <p className="text-sm text-gray-500">Inquilino: <span className="font-medium text-gray-800">{t.userName}</span></p>
-                                          <div className="mt-2 text-xs text-gray-400 space-x-3">
-                                              <span>ID: {t.id}</span>
-                                              <span>Data: {t.date}</span>
-                                              <span>Ref: {t.reference}</span>
-                                          </div>
-                                      </div>
-                                      
-                                      <div className="mt-4 md:mt-0 text-right">
-                                          <p className="text-sm text-gray-500">Valor Total Depositado</p>
-                                          <p className="text-2xl font-bold text-gray-900">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(t.amount)}</p>
-                                      </div>
-                                  </div>
-
-                                  {/* Calculation Breakdown */}
-                                  <div className="bg-gray-50 px-4 py-3 border-t border-b border-gray-200 grid grid-cols-2 gap-4 text-sm">
-                                      <div>
-                                          <p className="text-gray-500 text-xs">Comissão Arrendaki (2.5%)</p>
-                                          <p className="font-bold text-green-600">+{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(commission)}</p>
-                                      </div>
-                                      <div className="text-right">
-                                          <p className="text-gray-500 text-xs">A Transferir ao Proprietário</p>
-                                          <p className="font-bold text-blue-600">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(netOwnerAmount)}</p>
-                                      </div>
-                                  </div>
-
-                                  {t.status === 'escrow_held' ? (
-                                      <div className="p-4 flex space-x-3">
-                                          <button 
-                                              onClick={() => handleEscrowAction(t.id, 'release', netOwnerAmount)} 
-                                              className="flex-1 bg-green-600 text-white py-3 rounded-lg text-sm font-bold hover:bg-green-700 flex items-center justify-center shadow-md"
-                                          >
-                                              <ArrowRightLeft className="w-4 h-4 mr-2" /> Libertar {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(netOwnerAmount)}
-                                          </button>
-                                          <button 
-                                              onClick={() => handleEscrowAction(t.id, 'refund', t.amount)}
-                                              className="flex-1 bg-white border border-red-200 text-red-700 py-3 rounded-lg text-sm font-bold hover:bg-red-50 flex items-center justify-center"
-                                          >
-                                              <XCircle className="w-4 h-4 mr-2" /> Devolver Totalidade
-                                          </button>
-                                      </div>
-                                  ) : (
-                                      <div className="p-3 bg-gray-50 text-center border-t border-gray-100">
-                                          <span className={`font-bold text-sm uppercase flex items-center justify-center ${t.status === 'released' ? 'text-green-600' : 'text-red-600'}`}>
-                                              {t.status === 'released' ? <CheckCircle className="w-4 h-4 mr-2" /> : <XCircle className="w-4 h-4 mr-2" />}
-                                              {t.status === 'released' ? 'Fundos Libertados ao Proprietário' : 'Reembolsado ao Inquilino'}
-                                          </span>
-                                      </div>
-                                  )}
-                              </div>
-                          );
-                      })}
-                  </div>
-              )}
-
-              {/* REPORTS TAB */}
-              {activeSubTab === 'reports' && (
-                  <div className="space-y-6">
-                      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                          <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                              <FileSpreadsheet className="w-5 h-5 mr-2 text-brand-600" />
-                              Exportar Relatórios
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                              <div>
-                                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Data Início</label>
-                                  <input 
-                                      type="date" 
-                                      value={reportStartDate} 
-                                      onChange={e => setReportStartDate(e.target.value)} 
-                                      className="w-full p-2 border border-gray-300 rounded-lg text-sm" 
-                                  />
-                              </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Data Fim</label>
-                                  <input 
-                                      type="date" 
-                                      value={reportEndDate} 
-                                      onChange={e => setReportEndDate(e.target.value)} 
-                                      className="w-full p-2 border border-gray-300 rounded-lg text-sm" 
-                                  />
-                              </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Tipo de Transação</label>
-                                  <select 
-                                      value={reportType} 
-                                      onChange={e => setReportType(e.target.value)} 
-                                      className="w-full p-2 border border-gray-300 rounded-lg text-sm"
-                                  >
-                                      <option value="all">Todas</option>
-                                      <option value="listing_fee">Taxas de Listagem</option>
-                                      <option value="escrow_deposit">Depósitos Escrow</option>
-                                  </select>
-                              </div>
-                          </div>
-                          <div className="flex space-x-3">
-                              <button 
-                                  onClick={exportToCSV}
-                                  className="flex-1 bg-gray-900 text-white py-3 rounded-lg font-bold hover:bg-gray-800 flex items-center justify-center shadow-md"
-                              >
-                                  <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar CSV (Excel)
-                              </button>
-                              <button 
-                                  onClick={exportToPDF}
-                                  className="flex-1 bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-50 flex items-center justify-center"
-                              >
-                                  <FileText className="w-4 h-4 mr-2" /> Gerar PDF
-                              </button>
-                          </div>
-                      </div>
-
-                      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                          <div className="p-4 bg-gray-50 border-b border-gray-200">
-                              <h4 className="font-bold text-gray-700 text-sm">Pré-visualização de Dados Recentes</h4>
-                          </div>
-                          <div className="overflow-x-auto">
-                              <table className="w-full text-sm text-left">
-                                  <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
-                                      <tr>
-                                          <th className="px-4 py-3">ID</th>
-                                          <th className="px-4 py-3">Data</th>
-                                          <th className="px-4 py-3">Tipo</th>
-                                          <th className="px-4 py-3">Utilizador</th>
-                                          <th className="px-4 py-3 text-right">Valor</th>
-                                          <th className="px-4 py-3 text-center">Estado</th>
-                                      </tr>
-                                  </thead>
-                                  <tbody>
-                                      {transactions.slice(0, 5).map(t => (
-                                          <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
-                                              <td className="px-4 py-3 font-mono text-xs">{t.id}</td>
-                                              <td className="px-4 py-3">{t.date}</td>
-                                              <td className="px-4 py-3 capitalize">{t.type.replace('_', ' ')}</td>
-                                              <td className="px-4 py-3">{t.userName}</td>
-                                              <td className="px-4 py-3 text-right font-bold">{t.amount} {t.currency}</td>
-                                              <td className="px-4 py-3 text-center">
-                                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                                      t.status === 'completed' || t.status === 'released' ? 'bg-green-100 text-green-700' :
-                                                      t.status === 'pending' || t.status === 'escrow_held' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                                                  }`}>
-                                                      {t.status}
-                                                  </span>
-                                              </td>
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                              </table>
-                          </div>
-                      </div>
-                  </div>
-              )}
+  const renderSecurity = () => (
+      <div className="space-y-6 animate-fadeIn">
+          <div className="flex space-x-4 mb-6">
+              <button 
+                onClick={() => setSecurityTab('verify')}
+                className={`px-4 py-2 rounded-lg font-bold ${securityTab === 'verify' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'}`}
+              >
+                  Fila de Verificação
+              </button>
+              <button 
+                onClick={() => setSecurityTab('audits')}
+                className={`px-4 py-2 rounded-lg font-bold ${securityTab === 'audits' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'}`}
+              >
+                  Logs de Segurança
+              </button>
           </div>
-      );
-  };
 
-  const renderSecurity = () => {
-    // Sub-tabs for security are 'verify' and 'audits' (derived from activeSubTab logic or just tabs here)
-    const [securityTab, setSecurityTab] = useState<'verify' | 'audits'>('verify');
-    
-    const pendingVerifications = verificationQueue.filter(v => v.status !== 'approved' && v.status !== 'rejected').length;
-    const verifiedUsersCount = usersList.filter(u => u.isIdentityVerified).length;
-    const activeThreats = auditChats.length;
-
-    // Quick Action Reasons
-    const rejectionReasons = ["Foto Ilegível", "Documento Expirado", "Dados não coincidem", "Falta Verso"];
-    const reviewReasons = ["Confirmar com Supervisor", "Suspeita de Fraude", "Requer Contacto Telefónico"];
-
-    return (
-        <div className="space-y-6 animate-fadeIn">
-            {/* Security KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Fila de Verificação</p>
-                        <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{pendingVerifications}</h3>
-                        <p className="text-xs text-orange-500 font-medium">Pendentes de Ação</p>
-                    </div>
-                    <div className="p-3 bg-orange-100 rounded-lg">
-                        <FileSearch className="w-6 h-6 text-orange-600" />
-                    </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Kiá Verified</p>
-                        <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{verifiedUsersCount}</h3>
-                        <p className="text-xs text-green-600 font-medium">Utilizadores Certificados</p>
-                    </div>
-                    <div className="p-3 bg-green-100 rounded-lg">
-                        <Fingerprint className="w-6 h-6 text-green-600" />
-                    </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Alertas de NLP</p>
-                        <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{activeThreats}</h3>
-                        <p className="text-xs text-red-600 font-medium">Conversas Suspeitas</p>
-                    </div>
-                    <div className="p-3 bg-red-100 rounded-lg">
-                        <ShieldAlert className="w-6 h-6 text-red-600" />
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex space-x-4 border-b border-gray-200 pb-1">
-                <button 
-                    onClick={() => setSecurityTab('verify')}
-                    className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors ${securityTab === 'verify' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                    Fila de Verificação
-                </button>
-                <button 
-                    onClick={() => setSecurityTab('audits')}
-                    className={`pb-3 px-2 text-sm font-bold border-b-2 transition-colors ${securityTab === 'audits' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                    Auditoria de Chats
-                </button>
-            </div>
-
-            {securityTab === 'verify' && hasPermission('manage_verification') && (
-                <div className="space-y-4">
-                     {/* Split View: Queue List (Left) | Inspector (Right) */}
-                     <div className="flex flex-col lg:flex-row gap-6 h-[600px]">
-                        {/* List - Scrollable */}
-                        <div className={`flex-1 space-y-3 overflow-y-auto pr-2 ${inspectingRequest ? 'hidden lg:block' : ''}`}>
-                             {pendingVerifications === 0 && (
-                                 <div className="text-center py-12 bg-gray-50 rounded-xl border-dashed border-gray-300 border-2">
-                                     <CheckCircle className="w-12 h-12 text-green-300 mx-auto mb-2" />
-                                     <p className="text-gray-500 font-medium">Tudo limpo! Nenhuma verificação pendente.</p>
-                                 </div>
-                             )}
-                             {verificationQueue
-                                .filter(v => v.status !== 'approved' && v.status !== 'rejected')
-                                .sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-                                .map(req => {
-                                 const userDetails = usersList.find(u => u.id === req.userId);
-                                 return (
-                                     <div 
-                                        key={req.id} 
-                                        onClick={() => setInspectingRequest(req)}
-                                        className={`bg-white p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${inspectingRequest?.id === req.id ? 'border-brand-500 ring-2 ring-brand-100 bg-brand-50' : 'border-gray-200'}`}
-                                     >
-                                         <div className="flex justify-between items-start mb-2">
-                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase flex items-center ${req.type === 'identity' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                 {req.type === 'identity' ? <Fingerprint className="w-3 h-3 mr-1"/> : <Home className="w-3 h-3 mr-1"/>}
-                                                 {req.type === 'identity' ? 'Identidade' : 'Propriedade'}
-                                             </span>
-                                             <span className="text-[10px] text-gray-400 font-mono">{req.submittedAt}</span>
-                                         </div>
-                                         <div className="flex items-center mt-2">
-                                             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3 text-xs font-bold text-gray-600">
-                                                 {userDetails?.name.charAt(0) || '?'}
-                                             </div>
-                                             <div className="overflow-hidden">
-                                                 <p className="text-sm font-bold text-gray-900 truncate">{userDetails?.name || req.userId}</p>
-                                                 <p className="text-xs text-gray-500 truncate">{userDetails?.email}</p>
-                                             </div>
-                                         </div>
-                                         {req.status === 'review_needed' && (
-                                             <div className="mt-2 bg-yellow-50 text-yellow-700 text-xs p-2 rounded border border-yellow-200 flex items-center">
-                                                 <AlertTriangle className="w-3 h-3 mr-1" /> Em Revisão
-                                             </div>
-                                         )}
-                                     </div>
-                                 );
-                             })}
-                        </div>
-                        
-                        {/* Inspector Panel - Fixed Height */}
-                        {inspectingRequest ? (
-                            <div className="flex-[1.5] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex flex-col h-full">
-                                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                    <div>
-                                        <h3 className="font-bold text-gray-800">Inspecionar Documento</h3>
-                                        <p className="text-xs text-gray-500">ID: {inspectingRequest.id} • {inspectingRequest.type === 'identity' ? 'BI/Passaporte' : 'Título de Propriedade'}</p>
-                                    </div>
-                                    <button onClick={() => setInspectingRequest(null)} className="text-gray-400 hover:text-gray-600"><X className="w-6 h-6"/></button>
-                                </div>
-                                
-                                <div className="flex-1 overflow-y-auto bg-gray-900 relative group flex items-center justify-center">
-                                    <img 
-                                        src={inspectingRequest.documentUrl} 
-                                        className="max-w-full max-h-full object-contain shadow-lg" 
-                                        alt="Documento" 
-                                    />
-                                    <div className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full backdrop-blur-sm">
-                                        <ZoomIn className="w-5 h-5" />
-                                    </div>
-                                </div>
-
-                                <div className="p-4 bg-white border-t border-gray-200 space-y-4">
-                                    {/* Quick Actions Tags */}
-                                    <div>
-                                        <p className="text-xs font-bold text-gray-500 uppercase mb-2">Motivos Rápidos</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {rejectionReasons.map(reason => (
-                                                <button 
-                                                    key={reason}
-                                                    onClick={() => setVerificationActionNote(reason)}
-                                                    className="px-2 py-1 bg-red-50 text-red-600 border border-red-100 rounded text-xs hover:bg-red-100 transition-colors flex items-center"
-                                                >
-                                                    <Tag className="w-3 h-3 mr-1" /> {reason}
-                                                </button>
-                                            ))}
-                                            {reviewReasons.map(reason => (
-                                                <button 
-                                                    key={reason}
-                                                    onClick={() => setVerificationActionNote(reason)}
-                                                    className="px-2 py-1 bg-yellow-50 text-yellow-700 border border-yellow-100 rounded text-xs hover:bg-yellow-100 transition-colors flex items-center"
-                                                >
-                                                    <Tag className="w-3 h-3 mr-1" /> {reason}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nota da Ação (Obrigatória para Rejeição)</label>
-                                        <input 
-                                            type="text" 
-                                            className="w-full border border-gray-300 p-2 rounded text-sm focus:ring-brand-500 focus:border-brand-500"
-                                            placeholder="Ex: Documento legível e válido."
-                                            value={verificationActionNote}
-                                            onChange={e => setVerificationActionNote(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <button 
-                                            onClick={() => handleProcessVerification('approve')}
-                                            className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold text-sm hover:bg-green-700 shadow-sm flex items-center justify-center transition-transform hover:-translate-y-0.5"
-                                        >
-                                            <CheckCircle className="w-4 h-4 mr-2" />
-                                            Aprovar
-                                        </button>
-                                        <button 
-                                            onClick={() => handleProcessVerification('review_needed')}
-                                            className="flex-1 bg-yellow-500 text-white py-3 rounded-lg font-bold text-sm hover:bg-yellow-600 shadow-sm flex items-center justify-center transition-transform hover:-translate-y-0.5"
-                                        >
-                                            <AlertTriangle className="w-4 h-4 mr-2" />
-                                            Revisão
-                                        </button>
-                                        <button 
-                                            onClick={() => handleProcessVerification('reject')}
-                                            className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold text-sm hover:bg-red-700 shadow-sm flex items-center justify-center transition-transform hover:-translate-y-0.5"
-                                        >
-                                            <XCircle className="w-4 h-4 mr-2" />
-                                            Rejeitar
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex-[1.5] bg-gray-50 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 p-8">
-                                <FileSearch className="w-16 h-16 mb-4 opacity-50" />
-                                <p className="font-medium">Selecione um item da fila para inspecionar</p>
-                            </div>
-                        )}
-                     </div>
-                </div>
-            )}
-
-            {securityTab === 'audits' && hasPermission('audit_chats') && (
-                 <div className="space-y-4">
-                     {auditChats.length === 0 ? (
-                         <div className="text-center py-12 text-gray-500 bg-white rounded-xl border border-gray-200">
-                             <ShieldCheck className="w-12 h-12 mx-auto text-green-500 mb-3" />
-                             <p className="font-medium">Nenhum alerta de segurança ativo.</p>
-                         </div>
-                     ) : (
-                         <div className="grid grid-cols-1 gap-4">
-                             {auditChats.map(chat => (
-                                 <div key={chat.id} className="bg-white border-l-4 border-red-500 rounded-r-xl shadow-sm p-4 flex justify-between items-start hover:shadow-md transition-shadow">
-                                     <div>
-                                         <div className="flex items-center text-red-700 font-bold mb-1">
-                                             <AlertTriangle className="w-4 h-4 mr-2" />
-                                             {chat.reason === 'phone_sharing' ? 'Partilha de Contacto (Telefone)' : 'Linguagem Ofensiva / Scam'}
-                                         </div>
-                                         <p className="text-sm text-gray-600 mb-2">
-                                             Participantes: <span className="font-mono bg-gray-100 px-1 rounded text-xs">{chat.participants.join(', ')}</span>
-                                         </p>
-                                         <div className="bg-red-50 p-3 rounded text-sm text-gray-800 font-mono border border-red-100 italic">
-                                             "{chat.snippet}"
-                                         </div>
-                                         <p className="text-xs text-gray-400 mt-2 flex items-center">
-                                             <Clock className="w-3 h-3 mr-1" /> {chat.timestamp}
-                                         </p>
-                                     </div>
-                                     <div className="flex flex-col space-y-2">
-                                         <button 
-                                            onClick={() => setViewingChatLog(chat)}
-                                            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-gray-800 flex items-center shadow-sm"
-                                         >
-                                             <Eye className="w-3 h-3 mr-2" />
-                                             Ver Contexto
-                                         </button>
-                                     </div>
-                                 </div>
-                             ))}
-                         </div>
-                     )}
-                 </div>
-            )}
-        </div>
-    );
-  };
-
-  const renderIT = () => {
-    // Mock Data for IT
-    const systemLogs = [
-        { id: 'log1', level: 'error', message: 'Failed to sync with Multicaixa Gateway: Timeout', timestamp: '2023-10-26 14:20' },
-        { id: 'log2', level: 'warning', message: 'High memory usage on Image Processor Node', timestamp: '2023-10-26 13:45' },
-        { id: 'log3', level: 'info', message: 'Daily backup completed successfully', timestamp: '2023-10-26 04:00' },
-    ];
-
-    const serviceStatus = [
-        { name: 'API Server', status: 'online', uptime: '99.9%' },
-        { name: 'Database (Postgres)', status: 'online', uptime: '99.99%' },
-        { name: 'Storage (S3)', status: 'online', uptime: '100%' },
-        { name: 'Payment Gateway (MCX)', status: 'degraded', uptime: '98.5%' },
-    ];
-
-    return (
-        <div className="space-y-6 animate-fadeIn">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                 {serviceStatus.map(service => (
-                     <div key={service.name} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                         <div>
-                             <p className="text-sm font-medium text-gray-500">{service.name}</p>
-                             <div className="flex items-center mt-1">
-                                 <div className={`w-2.5 h-2.5 rounded-full mr-2 ${service.status === 'online' ? 'bg-green-500' : service.status === 'degraded' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-                                 <span className="font-bold text-gray-900 capitalize">{service.status}</span>
-                             </div>
-                         </div>
-                         <div className="text-right">
-                             <span className="text-xs text-gray-400">Uptime</span>
-                             <p className="font-mono font-bold text-gray-700">{service.uptime}</p>
-                         </div>
-                     </div>
-                 ))}
-            </div>
-
-            <div className="bg-gray-900 rounded-xl overflow-hidden shadow-md text-gray-300 font-mono text-sm">
-                <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-950">
-                    <h3 className="font-bold text-gray-100 flex items-center">
-                        <Server className="w-4 h-4 mr-2" /> Logs do Sistema
-                    </h3>
-                    <button className="text-xs text-brand-400 hover:text-brand-300">Ver Todos</button>
-                </div>
-                <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto">
-                    {systemLogs.map(log => (
-                        <div key={log.id} className="flex space-x-3 hover:bg-gray-800 p-1 rounded">
-                            <span className="text-gray-500 w-36 shrink-0">{log.timestamp}</span>
-                            <span className={`w-16 font-bold uppercase shrink-0 ${
-                                log.level === 'error' ? 'text-red-500' : 
-                                log.level === 'warning' ? 'text-yellow-500' : 'text-blue-500'
-                            }`}>[{log.level}]</span>
-                            <span className="text-gray-300">{log.message}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-800 mb-4">Ações de Manutenção</h3>
-                <div className="flex space-x-4">
-                    <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700">Limpar Cache</button>
-                    <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700">Reiniciar Serviços de Imagem</button>
-                    <button className="px-4 py-2 border border-red-200 bg-red-50 rounded-lg text-sm font-medium hover:bg-red-100 text-red-700 ml-auto">Modo de Manutenção</button>
-                </div>
-            </div>
-        </div>
-    );
-  };
-
-  const renderContracts = () => {
-    // Filter logic
-    const filteredContracts = contracts.filter(c => {
-        const matchSearch = c.propertyTitle.toLowerCase().includes(contractFilters.search.toLowerCase()) || 
-                            c.tenantName.toLowerCase().includes(contractFilters.search.toLowerCase()) ||
-                            c.ownerName.toLowerCase().includes(contractFilters.search.toLowerCase());
-        const matchStatus = contractFilters.status === 'all' || c.status === contractFilters.status;
-        return matchSearch && matchStatus;
-    });
-
-    return (
-        <div className="space-y-6 animate-fadeIn">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <StatCard title="Contratos Ativos" value={contracts.filter(c => c.status === 'active').length} icon={FileText} color="green" />
-                <StatCard title="Pendentes Assinatura" value={contracts.filter(c => c.status === 'pending_signature').length} icon={PenTool} color="orange" />
-                <StatCard title="Terminados/Expirados" value={contracts.filter(c => c.status === 'terminated' || c.status === 'expired').length} icon={XCircle} color="red" />
-                <StatCard title="Valor Total (Mensal)" value="Kz 12.5M" icon={DollarSign} color="blue" />
-            </div>
-
-            {/* Filters */}
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pesquisar</label>
-                    <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
-                        <input 
-                            type="text" 
-                            placeholder="Propriedade, Inquilino ou Proprietário" 
-                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            value={contractFilters.search}
-                            onChange={e => setContractFilters({...contractFilters, search: e.target.value})}
-                        />
-                    </div>
-                </div>
-                <div>
-                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Estado</label>
-                     <select 
-                        value={contractFilters.status}
-                        onChange={e => setContractFilters({...contractFilters, status: e.target.value as any})}
-                        className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white"
-                     >
-                         <option value="all">Todos</option>
-                         <option value="active">Ativos</option>
-                         <option value="expired">Expirados</option>
-                         <option value="terminated">Rescindidos</option>
-                     </select>
-                </div>
-                <div>
-                    <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200">
-                        <Filter className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            {/* Contracts List */}
-            <div className="space-y-4">
-                {filteredContracts.map(contract => (
-                    <div key={contract.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                            <div className="flex items-start space-x-4">
-                                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-                                    <FileSignature className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-gray-900">{contract.propertyTitle}</h4>
-                                    <p className="text-sm text-gray-500">
-                                        <span className="font-medium">{contract.tenantName}</span> (Inquilino) • <span className="font-medium">{contract.ownerName}</span> (Proprietário)
-                                    </p>
-                                    <div className="flex items-center mt-2 text-xs text-gray-400 space-x-3">
-                                        <span className="flex items-center"><Hash className="w-3 h-3 mr-1"/> {contract.id}</span>
-                                        <span className="flex items-center"><Calendar className="w-3 h-3 mr-1"/> {contract.startDate} a {contract.endDate || 'N/A'}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="mt-4 md:mt-0 flex flex-col items-end space-y-2 w-full md:w-auto">
-                                <div className="flex items-center space-x-2">
-                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                          contract.status === 'active' ? 'bg-green-100 text-green-700' :
-                                          contract.status === 'pending_signature' ? 'bg-yellow-100 text-yellow-700' :
-                                          'bg-red-100 text-red-700'
-                                      }`}>
-                                          {contract.status === 'active' ? 'Ativo' : contract.status === 'pending_signature' ? 'Pendente' : contract.status}
-                                     </span>
-                                     <p className="font-bold text-gray-900">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: contract.currency }).format(contract.value)}</p>
-                                </div>
-                                
-                                <div className="flex space-x-2 w-full">
-                                    <button 
-                                        onClick={() => handleDownloadContract(contract.id)}
-                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 flex items-center"
-                                    >
-                                        <Download className="w-3 h-3 mr-1" /> PDF
-                                    </button>
-                                    {contract.status === 'active' && hasPermission('manage_contracts') && (
-                                        <>
-                                            <button 
-                                                onClick={() => handleContractAction(contract.id, 'renew')}
-                                                className="px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium hover:bg-green-100"
-                                            >
-                                                Renovar
-                                            </button>
-                                            <button 
-                                                onClick={() => handleContractAction(contract.id, 'terminate')}
-                                                className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
-                                            >
-                                                Rescindir
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                {filteredContracts.length === 0 && (
-                     <div className="text-center py-10 text-gray-500 bg-white border border-gray-200 rounded-xl border-dashed">
-                         <FileSearch className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                         Nenhum contrato encontrado com os filtros atuais.
-                     </div>
-                )}
-            </div>
-        </div>
-    );
-  };
-
-  const renderCommunications = () => {
-      return (
-          <div className="space-y-6 animate-fadeIn">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Sender Form */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                          <Megaphone className="w-5 h-5 mr-2 text-brand-600" />
-                          Nova Notificação Push
-                      </h3>
-                      <div className="space-y-4">
-                          <div>
-                              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Título</label>
-                              <input 
-                                  type="text" 
-                                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-brand-500 focus:border-brand-500"
-                                  placeholder="Ex: Manutenção do Sistema"
-                                  value={notifForm.title}
-                                  onChange={e => setNotifForm({...notifForm, title: e.target.value})}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Mensagem</label>
-                              <textarea 
-                                  className="w-full border border-gray-300 rounded-lg p-2 text-sm h-24 resize-none focus:ring-brand-500 focus:border-brand-500"
-                                  placeholder="A sua mensagem aqui..."
-                                  value={notifForm.message}
-                                  onChange={e => setNotifForm({...notifForm, message: e.target.value})}
-                              ></textarea>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Público Alvo</label>
-                                  <select 
-                                      className="w-full border border-gray-300 rounded-lg p-2 text-sm"
-                                      value={notifForm.target}
-                                      onChange={e => setNotifForm({...notifForm, target: e.target.value as any})}
-                                  >
-                                      <option value="all">Todos os Utilizadores</option>
-                                      <option value="tenant">Inquilinos</option>
-                                      <option value="owner">Proprietários</option>
-                                      <option value="broker">Corretores</option>
-                                  </select>
-                              </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Tipo</label>
-                                  <select 
-                                      className="w-full border border-gray-300 rounded-lg p-2 text-sm"
-                                      value={notifForm.type}
-                                      onChange={e => setNotifForm({...notifForm, type: e.target.value as any})}
-                                  >
-                                      <option value="info">Informativo (Azul)</option>
-                                      <option value="warning">Alerta (Amarelo)</option>
-                                      <option value="promo">Promoção (Verde)</option>
-                                  </select>
-                              </div>
-                          </div>
-                          <div className="pt-2">
-                              <button 
-                                  onClick={handleSendPushNotification}
-                                  className="w-full bg-brand-600 text-white py-2 rounded-lg font-bold shadow-md hover:bg-brand-700 flex items-center justify-center"
+          {securityTab === 'verify' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Queue List */}
+                  <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="p-4 bg-gray-50 border-b font-bold text-gray-700">Pedidos Pendentes ({verificationQueue.filter(v => v.status !== 'approved' && v.status !== 'rejected').length})</div>
+                      <div className="divide-y divide-gray-100">
+                          {verificationQueue.filter(v => v.status !== 'approved' && v.status !== 'rejected').map(req => (
+                              <div 
+                                  key={req.id} 
+                                  onClick={() => handleOpenVerification(req)}
+                                  className={`p-4 cursor-pointer hover:bg-brand-50 transition-colors ${selectedVerification?.id === req.id ? 'bg-brand-50 border-l-4 border-brand-500' : ''}`}
                               >
-                                  <Send className="w-4 h-4 mr-2" /> Enviar Notificação
-                              </button>
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* History */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col h-full">
-                      <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                          <Clock className="w-5 h-5 mr-2 text-gray-500" />
-                          Histórico de Envios
-                      </h3>
-                      <div className="flex-1 overflow-y-auto space-y-3 pr-2 max-h-[400px]">
-                          {notificationHistory.map(notif => (
-                              <div key={notif.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                                  <div className="flex justify-between items-start mb-1">
-                                      <h4 className="font-bold text-sm text-gray-900">{notif.title}</h4>
-                                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                                          notif.type === 'info' ? 'bg-blue-100 text-blue-700' :
-                                          notif.type === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
-                                      }`}>{notif.type}</span>
+                                  <div className="flex justify-between items-start">
+                                      <span className="font-bold text-sm text-gray-900 capitalize">{req.type.replace('_', ' ')}</span>
+                                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${req.status === 'review_needed' ? 'bg-orange-100 text-orange-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                          {req.status.replace('_', ' ')}
+                                      </span>
                                   </div>
-                                  <p className="text-xs text-gray-600 mb-2">{notif.message}</p>
-                                  <div className="flex justify-between items-center text-[10px] text-gray-400">
-                                      <span>Alvo: {notif.target}</span>
-                                      <span>{notif.date}</span>
-                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">User: {req.userId}</p>
+                                  <p className="text-xs text-gray-400">{req.submittedAt}</p>
                               </div>
                           ))}
-                          {notificationHistory.length === 0 && (
-                              <p className="text-center text-gray-400 text-sm py-10">Sem histórico.</p>
+                          {verificationQueue.filter(v => v.status !== 'approved' && v.status !== 'rejected').length === 0 && (
+                              <div className="p-8 text-center text-gray-400 text-sm">Fila vazia. Bom trabalho!</div>
                           )}
                       </div>
                   </div>
-              </div>
-          </div>
-      );
-  };
 
-  const renderChatAuditModal = () => {
-      if (!viewingChatLog) return null;
-
-      return (
-          <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-              <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-                  <div className="bg-red-50 p-4 border-b border-red-100 flex justify-between items-center">
-                      <div className="flex items-center text-red-800">
-                          <ShieldAlert className="w-6 h-6 mr-2" />
-                          <div>
-                              <h3 className="font-bold">Auditoria de Segurança</h3>
-                              <p className="text-xs text-red-600">ID do Chat: {viewingChatLog.id}</p>
-                          </div>
-                      </div>
-                      <button onClick={() => setViewingChatLog(null)} className="text-red-400 hover:text-red-600">
-                          <X className="w-6 h-6" />
-                      </button>
-                  </div>
-                  
-                  <div className="p-6 overflow-y-auto">
-                      <div className="mb-6">
-                          <h4 className="text-sm font-bold text-gray-500 uppercase mb-2">Detalhes da Infração</h4>
-                          <div className="bg-white border border-red-200 rounded-lg p-4 shadow-sm">
-                              <div className="grid grid-cols-2 gap-4 mb-3">
+                  {/* Detail View */}
+                  <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative min-h-[400px]">
+                      {selectedVerification ? (
+                          <div className="animate-fadeIn">
+                              <div className="flex justify-between items-start mb-6">
                                   <div>
-                                      <span className="text-xs text-gray-400 block">Tipo de Alerta</span>
-                                      <span className="font-bold text-gray-800 text-sm">{viewingChatLog.reason === 'phone_sharing' ? 'Partilha de Contacto' : 'Linguagem Imprópria'}</span>
+                                      <h3 className="text-xl font-bold text-gray-900 capitalize">{selectedVerification.type.replace('_', ' ')}</h3>
+                                      <p className="text-sm text-gray-500">Submetido por {selectedVerification.userId} em {selectedVerification.submittedAt}</p>
                                   </div>
-                                  <div>
-                                      <span className="text-xs text-gray-400 block">Data/Hora</span>
-                                      <span className="font-bold text-gray-800 text-sm">{viewingChatLog.timestamp}</span>
+                                  <div className="flex space-x-2">
+                                      <button onClick={() => handleVerificationDecision('review')} className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-yellow-600">Pedir Revisão</button>
+                                      <button onClick={() => handleVerificationDecision('reject')} className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-700">Rejeitar (Fraude)</button>
+                                      <button onClick={() => handleVerificationDecision('approve')} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-700">Aprovar Dossiê</button>
                                   </div>
                               </div>
+
+                              <div className="grid grid-cols-2 gap-6 mb-6">
+                                  {/* Document Preview */}
+                                  <div className="bg-gray-900 rounded-lg overflow-hidden relative flex items-center justify-center h-80">
+                                      {documentRevealed ? (
+                                          <img src={selectedVerification.documentUrl} className="max-w-full max-h-full object-contain" alt="Doc" />
+                                      ) : (
+                                          <div className="text-center">
+                                              <Lock className="w-12 h-12 text-gray-500 mx-auto mb-2" />
+                                              <p className="text-gray-400 text-sm mb-4">Documento Protegido (PII)</p>
+                                              <button onClick={handleRevealDocument} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded text-sm font-bold border border-white/20">Revelar para Auditoria</button>
+                                          </div>
+                                      )}
+                                  </div>
+
+                                  {/* Checklist */}
+                                  <div className="space-y-4">
+                                      <h4 className="font-bold text-gray-700 border-b pb-2">Checklist de Conformidade</h4>
+                                      {[
+                                          { key: 'name', label: 'Nome Legível e Coincidente' },
+                                          { key: 'bi', label: 'Número de BI/NIF Visível' },
+                                          { key: 'address', label: 'Morada Confirmada' },
+                                          { key: 'face', label: 'Foto Clara (Sem reflexos)' }
+                                      ].map(item => (
+                                          <div key={item.key} className="flex items-center justify-between p-3 bg-gray-50 rounded cursor-pointer hover:bg-gray-100" onClick={() => toggleFieldValidation(item.key)}>
+                                              <span className="text-sm text-gray-700">{item.label}</span>
+                                              {fieldValidation[item.key] === 'valid' 
+                                                  ? <CheckCircle className="w-5 h-5 text-green-500" />
+                                                  : <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                                              }
+                                          </div>
+                                      ))}
+                                      
+                                      <div className="mt-4">
+                                          <label className="text-xs font-bold text-gray-500 uppercase">Notas do Auditor</label>
+                                          <textarea 
+                                              className="w-full mt-1 p-2 border border-gray-300 rounded text-sm h-24"
+                                              placeholder="Justifique a decisão..."
+                                              value={verificationNote}
+                                              onChange={(e) => setVerificationNote(e.target.value)}
+                                          ></textarea>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                              <FileSearch className="w-16 h-16 mb-4 opacity-50" />
+                              <p className="font-medium">Selecione um pedido para auditar</p>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          )}
+          
+          {securityTab === 'audits' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-50 text-gray-600">
+                          <tr>
+                              <th className="p-4">Timestamp</th>
+                              <th className="p-4">Ação</th>
+                              <th className="p-4">Ator</th>
+                              <th className="p-4">Alvo</th>
+                              <th className="p-4">Detalhes</th>
+                              <th className="p-4">Status</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                          {auditLogs.map(log => (
+                              <tr key={log.id} className="hover:bg-gray-50">
+                                  <td className="p-4 font-mono text-xs">{new Date(log.timestamp).toLocaleString()}</td>
+                                  <td className="p-4 font-bold">{log.action}</td>
+                                  <td className="p-4 text-gray-600">{log.actor}</td>
+                                  <td className="p-4 text-gray-600">{log.target}</td>
+                                  <td className="p-4 max-w-xs truncate" title={log.details}>{log.details}</td>
+                                  <td className="p-4">
+                                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                          log.status === 'SUCCESS' ? 'bg-green-100 text-green-800' :
+                                          log.status === 'FAIL' ? 'bg-red-100 text-red-800' :
+                                          'bg-yellow-100 text-yellow-800'
+                                      }`}>{log.status}</span>
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+          )}
+      </div>
+  );
+
+  const renderCompliance = () => (
+      <div className="space-y-6 animate-fadeIn">
+          <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto pb-1 mb-4">
+              {['risk_dashboard', 'supervision', 'fraud_alerts'].map(tab => (
+                  <button 
+                      key={tab}
+                      onClick={() => setComplianceTab(tab as any)}
+                      className={`px-4 py-2 text-sm font-bold whitespace-nowrap ${complianceTab === tab ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-500 hover:text-gray-800'}`}
+                  >
+                      {tab.replace('_', ' ').toUpperCase()}
+                  </button>
+              ))}
+          </div>
+
+          {complianceTab === 'risk_dashboard' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                          <h4 className="text-gray-500 font-bold uppercase text-xs">Alertas Críticos</h4>
+                          <ShieldAlert className="w-5 h-5 text-red-500" />
+                      </div>
+                      <p className="text-3xl font-bold text-gray-900">{legalAlerts.filter(a => a.severity === 'critical' && a.status === 'open').length}</p>
+                      <p className="text-xs text-red-500 mt-1">Requerem Ação Imediata</p>
+                  </div>
+                  {/* More summary cards could be added here */}
+              </div>
+          )}
+
+          {complianceTab === 'fraud_alerts' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                   <div className="p-4 bg-red-50 border-b border-red-100 font-bold text-red-800 flex items-center">
+                       <Siren className="w-5 h-5 mr-2" /> Alertas de Fraude em Tempo Real
+                   </div>
+                   {legalAlerts.map(alert => (
+                       <div key={alert.id} className="p-4 border-b last:border-0 hover:bg-gray-50">
+                           <div className="flex justify-between items-start">
+                               <div>
+                                   <div className="flex items-center space-x-2">
+                                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase text-white ${alert.severity === 'critical' ? 'bg-red-600' : 'bg-orange-500'}`}>
+                                           {alert.severity}
+                                       </span>
+                                       <span className="font-bold text-gray-900">{alert.type.replace('_', ' ').toUpperCase()}</span>
+                                   </div>
+                                   <p className="text-sm text-gray-800 mt-1 font-medium">{alert.description}</p>
+                                   <p className="text-xs text-gray-500 mt-1">Alvo: {alert.targetUserName} ({alert.targetUser})</p>
+                               </div>
+                               <div className="text-right">
+                                   <p className="text-xs text-gray-400 mb-2">{new Date(alert.timestamp).toLocaleString()}</p>
+                                   {alert.status === 'open' && (
+                                       <div className="flex space-x-2 justify-end">
+                                           <button onClick={() => handleViewForensics(alert)} className="text-blue-600 text-xs font-bold hover:underline">Análise Forense</button>
+                                           <button onClick={() => handleSuspendTransaction(alert.id, alert.targetUser, alert.transactionId)} className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold hover:bg-red-200">Suspender</button>
+                                       </div>
+                                   )}
+                                   {alert.status !== 'open' && (
+                                       <span className="text-xs font-bold text-gray-500 uppercase">{alert.status.replace('_', ' ')}</span>
+                                   )}
+                               </div>
+                           </div>
+                           {/* Forensics Expanded View */}
+                           {selectedAlert?.id === alert.id && (
+                               <div className="mt-4 p-4 bg-gray-100 rounded border border-gray-300 animate-fadeIn">
+                                   <h5 className="font-bold text-sm mb-2">Dados Forenses (Snapshot)</h5>
+                                   <pre className="text-xs bg-black text-green-400 p-3 rounded overflow-x-auto font-mono">
+                                       {JSON.stringify({
+                                           ip: '197.230.XX.XX',
+                                           device: 'Android SM-G991B',
+                                           risk_score: 98,
+                                           velocity_check: 'FAIL (3 attempts / 10s)',
+                                           geo_match: 'MISMATCH (IP: Luanda / Profile: Benguela)'
+                                       }, null, 2)}
+                                   </pre>
+                               </div>
+                           )}
+                       </div>
+                   ))}
+              </div>
+          )}
+
+          {complianceTab === 'supervision' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="font-bold text-lg mb-4">Supervisão de Utilizadores</h3>
+                  <div className="flex space-x-2 mb-6">
+                      <input 
+                          type="text" 
+                          placeholder="ID, Email ou Nome..." 
+                          className="flex-1 p-2 border rounded"
+                          value={supervisionQuery}
+                          onChange={e => setSupervisionQuery(e.target.value)}
+                      />
+                      <button onClick={handleSearchUser} className="bg-gray-800 text-white px-4 py-2 rounded font-bold">Investigar</button>
+                  </div>
+
+                  {supervisionUser && (
+                      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 animate-fadeIn">
+                          <div className="flex justify-between items-start mb-4">
                               <div>
-                                  <span className="text-xs text-gray-400 block mb-1">Snippet Detetado (Contexto)</span>
-                                  <div className="bg-gray-100 p-3 rounded font-mono text-sm text-gray-700 border-l-4 border-red-400">
-                                      "... {viewingChatLog.snippet} ..."
-                                  </div>
+                                  <h4 className="text-xl font-bold text-gray-900">{supervisionUser.name}</h4>
+                                  <p className="text-sm text-gray-600">{supervisionUser.email} | ID: {supervisionUser.id}</p>
+                                  <p className="text-sm mt-1">
+                                      Estado Atual: 
+                                      <span className={`ml-2 px-2 py-0.5 rounded text-xs font-bold uppercase ${
+                                          supervisionUser.accountStatus === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                      }`}>
+                                          {supervisionUser.accountStatus}
+                                      </span>
+                                  </p>
+                              </div>
+                              <div className="space-x-2">
+                                  <button onClick={() => handleDownloadLegalReport(supervisionUser.id)} className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded text-xs font-bold hover:bg-gray-50">Relatório Legal (PDF)</button>
+                              </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-200 pt-4">
+                              <div className="bg-red-50 p-4 rounded border border-red-100">
+                                  <h5 className="font-bold text-red-800 mb-2">Ações Punitivas</h5>
+                                  <button onClick={() => handleUnilateralSuspension(supervisionUser.id)} className="w-full bg-red-600 text-white py-2 rounded font-bold text-sm hover:bg-red-700 mb-2">Suspensão Unilateral</button>
+                                  <p className="text-[10px] text-red-600 leading-tight">Aplica bloqueio total e cancela ordens pendentes. Requer justificação em audit log.</p>
+                              </div>
+                              <div className="bg-yellow-50 p-4 rounded border border-yellow-100">
+                                  <h5 className="font-bold text-yellow-800 mb-2">Ações Corretivas</h5>
+                                  <button onClick={() => handleUnlockWithRestrictions(supervisionUser.id)} className="w-full bg-yellow-600 text-white py-2 rounded font-bold text-sm hover:bg-yellow-700 mb-2">Desbloqueio Condicional</button>
+                                  <p className="text-[10px] text-yellow-800 leading-tight">Reativa conta com limites reduzidos e monitorização 24h.</p>
                               </div>
                           </div>
                       </div>
+                  )}
+              </div>
+          )}
+      </div>
+  );
 
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800">
-                          <h4 className="font-bold flex items-center mb-1"><Info className="w-4 h-4 mr-2"/> Ação Recomendada</h4>
-                          <p>
-                              Verifique se os participantes tentaram contornar o sistema de pagamentos ou agendamento (Escrow).
-                              Se confirmado, suspenda os utilizadores envolvidos.
-                          </p>
+  const renderAudit = () => (
+    <div className="space-y-6 animate-fadeIn">
+        <h3 className="font-bold text-lg text-gray-800">Trilho de Auditoria do Sistema</h3>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+             <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-gray-600">
+                      <tr>
+                          <th className="p-4">Data/Hora</th>
+                          <th className="p-4">Ação</th>
+                          <th className="p-4">Ator</th>
+                          <th className="p-4">Alvo</th>
+                          <th className="p-4">Resultado</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                      {auditLogs.map(log => (
+                          <tr key={log.id} className="hover:bg-gray-50">
+                              <td className="p-4 font-mono text-xs">{new Date(log.timestamp).toLocaleString()}</td>
+                              <td className="p-4 font-bold">{log.action}</td>
+                              <td className="p-4 text-gray-600">{log.actor}</td>
+                              <td className="p-4 text-gray-600">{log.target}</td>
+                              <td className="p-4">
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                      log.status === 'SUCCESS' ? 'bg-green-100 text-green-800' :
+                                      log.status === 'FAIL' ? 'bg-red-100 text-red-800' :
+                                      'bg-yellow-100 text-yellow-800'
+                                  }`}>{log.status}</span>
+                              </td>
+                          </tr>
+                      ))}
+                  </tbody>
+             </table>
+        </div>
+    </div>
+  );
+
+  const renderTeam = () => (
+      <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
+          <h3 className="text-xl font-bold mb-4">Equipa & Acessos</h3>
+          <p className="text-gray-500 mb-4">
+              A gestão de utilizadores internos foi centralizada no módulo <strong>IAM & Users</strong>.
+              Por favor, aceda a esse módulo para criar, editar ou remover colaboradores.
+          </p>
+          <button 
+              onClick={() => setActiveModule('iam')}
+              className="bg-brand-600 text-white px-4 py-2 rounded-lg font-bold flex items-center"
+          >
+              <UserCog className="w-4 h-4 mr-2" /> Ir para IAM
+          </button>
+      </div>
+  );
+
+  const renderContracts = () => (
+      <div className="space-y-6 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-bold text-lg mb-4">Motor de Contratos (Editor de Cláusulas)</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                  Gestão das cláusulas padrão utilizadas pela IA na geração de contratos.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Clauses List */}
+                  <div className="md:col-span-1 border-r border-gray-100 pr-4">
+                      <h4 className="font-bold text-sm text-gray-700 mb-3 uppercase">Biblioteca de Cláusulas</h4>
+                      <div className="space-y-2">
+                          {legalClauses.map(clause => (
+                              <div 
+                                  key={clause.id} 
+                                  onClick={() => handleEditClause(clause)}
+                                  className={`p-3 rounded border cursor-pointer hover:bg-gray-50 transition-colors ${editingClause?.id === clause.id ? 'bg-brand-50 border-brand-500' : 'border-gray-200'}`}
+                              >
+                                  <p className="font-bold text-sm text-gray-900">{clause.title}</p>
+                                  <div className="flex justify-between items-center mt-1">
+                                      <span className="text-xs text-gray-500">v{clause.version}</span>
+                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                          clause.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                      }`}>{clause.status}</span>
+                                  </div>
+                              </div>
+                          ))}
                       </div>
                   </div>
 
-                  <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-end space-x-3">
-                      <button 
-                          onClick={() => handleResolveAudit(viewingChatLog.id, 'false_positive')}
-                          className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 shadow-sm"
-                      >
-                          Marcar como Seguro (Falso Positivo)
-                      </button>
-                      <button 
-                          onClick={() => handleResolveAudit(viewingChatLog.id, 'confirm_violation')}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 shadow-sm flex items-center"
-                      >
-                          <Ban className="w-4 h-4 mr-2" /> Confirmar Violação
-                      </button>
+                  {/* Editor */}
+                  <div className="md:col-span-2">
+                      {editingClause ? (
+                          <div className="animate-fadeIn">
+                              <div className="mb-4">
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Título da Cláusula</label>
+                                  <input 
+                                      type="text" 
+                                      className="w-full p-2 border border-gray-300 rounded"
+                                      value={editorTitle}
+                                      onChange={e => setEditorTitle(e.target.value)}
+                                  />
+                              </div>
+                              <div className="mb-4">
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Conteúdo Legal (Texto Base)</label>
+                                  <textarea 
+                                      className="w-full p-4 border border-gray-300 rounded font-serif text-sm h-64 leading-relaxed"
+                                      value={editorContent}
+                                      onChange={e => setEditorContent(e.target.value)}
+                                  ></textarea>
+                              </div>
+                              <div className="flex justify-end space-x-3 bg-gray-50 p-4 rounded">
+                                  <button onClick={() => setEditingClause(null)} className="text-gray-600 font-bold text-sm px-3 py-2">Cancelar</button>
+                                  <button onClick={handleSaveDraftClause} className="bg-white border border-gray-300 text-gray-700 font-bold text-sm px-4 py-2 rounded hover:bg-gray-50">Guardar Rascunho</button>
+                                  <button onClick={handlePublishClause} className="bg-brand-600 text-white font-bold text-sm px-4 py-2 rounded hover:bg-brand-700 flex items-center">
+                                      <CheckCircle className="w-4 h-4 mr-2" /> Aprovar e Publicar v{(parseFloat(editingClause.version) + 0.1).toFixed(1)}
+                                  </button>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                              <FileText className="w-16 h-16 mb-4 opacity-30" />
+                              <p>Selecione uma cláusula para editar</p>
+                          </div>
+                      )}
                   </div>
               </div>
           </div>
-      );
-  };
+      </div>
+  );
+
+  const renderInfrastructure = () => (
+      <div className="space-y-6 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-bold text-lg mb-6">Estado da Infraestrutura</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  {serviceHealth.map(svc => (
+                      <div key={svc.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                           <div className="flex justify-between items-center mb-2">
+                               <h4 className="font-bold text-gray-700 text-sm">{svc.name}</h4>
+                               {svc.status === 'healthy' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <AlertTriangle className="w-4 h-4 text-red-500" />}
+                           </div>
+                           <p className="text-2xl font-bold text-gray-900">{svc.latency} ms</p>
+                           <p className="text-xs text-gray-500">Última verificação: {svc.lastChecked}</p>
+                      </div>
+                  ))}
+              </div>
+
+              <h4 className="font-bold text-gray-700 mb-4 border-t pt-4">Ações de Manutenção</h4>
+              <div className="flex space-x-4">
+                   <button onClick={handlePurgeCache} className="bg-white border border-red-300 text-red-700 px-4 py-2 rounded-lg font-bold hover:bg-red-50 flex items-center">
+                       <Trash2 className="w-4 h-4 mr-2" /> Limpar Cache CDN
+                   </button>
+                   <button onClick={handleSimulatePayment} className="bg-white border border-blue-300 text-blue-700 px-4 py-2 rounded-lg font-bold hover:bg-blue-50 flex items-center">
+                       <CreditCard className="w-4 h-4 mr-2" /> Simular Pagamento (Sandbox)
+                   </button>
+              </div>
+          </div>
+      </div>
+  );
+
+  const renderCommunication = () => (
+      <div className="space-y-6 animate-fadeIn">
+          <div className="flex justify-between items-center">
+              <h3 className="font-bold text-lg text-gray-800">Gestão de Conteúdo (Blog)</h3>
+              <button onClick={() => handleOpenPostEditor()} className="bg-brand-600 text-white px-4 py-2 rounded-lg font-bold flex items-center">
+                  <Plus className="w-4 h-4 mr-2" /> Novo Artigo
+              </button>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200">
+             <div className="flex space-x-2 border-b border-gray-200 pb-2 mb-4">
+                {(['all', 'published', 'pending_legal', 'draft'] as const).map(status => (
+                    <button 
+                        key={status}
+                        onClick={() => setBlogStatusFilter(status)}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-full ${blogStatusFilter === status ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                        {status.replace('_', ' ').toUpperCase()}
+                    </button>
+                ))}
+             </div>
+             
+             <div className="overflow-x-auto">
+                 <table className="w-full text-left text-sm">
+                    <thead>
+                        <tr className="bg-gray-50">
+                            <th className="p-2">Título</th>
+                            <th className="p-2">Categoria</th>
+                            <th className="p-2">Estado</th>
+                            <th className="p-2">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredBlogPosts.map(post => (
+                            <tr key={post.id} className="border-b last:border-0 hover:bg-gray-50">
+                                <td className="p-2 font-bold">{post.title}</td>
+                                <td className="p-2 capitalize">{post.category}</td>
+                                <td className="p-2">
+                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                        post.status === 'published' ? 'bg-green-100 text-green-800' :
+                                        post.status === 'pending_legal' ? 'bg-yellow-100 text-yellow-800' :
+                                        post.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                        'bg-gray-100 text-gray-600'
+                                    }`}>{post.status.replace('_', ' ')}</span>
+                                </td>
+                                <td className="p-2">
+                                    <button onClick={() => handleOpenPostEditor(post)} className="text-brand-600 text-xs font-bold">Gerir</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                 </table>
+             </div>
+          </div>
+      </div>
+  );
+
+  const renderIAM = () => (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto pb-1 mb-4">
+        {['users_list', 'roles', 'staff_logs'].map(tab => (
+          <button 
+            key={tab}
+            onClick={() => setIamTab(tab as any)}
+            className={`px-4 py-2 text-sm font-bold whitespace-nowrap ${iamTab === tab ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-500 hover:text-gray-800'}`}
+          >
+            {tab.replace('_', ' ').toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {iamTab === 'users_list' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-lg">Utilizadores Internos (Grupo B)</h3>
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input 
+                  type="text"
+                  placeholder="Pesquisar por nome ou email..."
+                  value={iamSearch}
+                  onChange={e => setIamSearch(e.target.value)}
+                  className="pl-9 pr-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+              <button onClick={openCreateUserModal} className="bg-brand-600 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center">
+                <UserPlus className="w-4 h-4 mr-2" /> Adicionar Staff
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="text-xs text-gray-500 uppercase border-b">
+                  <th className="py-2 px-4">Utilizador</th>
+                  <th className="py-2 px-4">Role</th>
+                  <th className="py-2 px-4">Estado da Conta</th>
+                  <th className="py-2 px-4">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.filter(u => u.group === 'internal' && (u.name.toLowerCase().includes(iamSearch.toLowerCase()) || u.email.toLowerCase().includes(iamSearch.toLowerCase()))).map(user => (
+                  <tr key={user.id} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <p className="font-bold text-gray-900">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </td>
+                    <td className="py-3 px-4 font-mono text-xs">{user.role}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        user.accountStatus === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>{user.accountStatus.replace('_', ' ')}</span>
+                    </td>
+                    <td className="py-3 px-4 flex items-center space-x-2">
+                      <button onClick={() => openEditRoleModal(user)} className="text-blue-600 hover:underline text-xs font-bold">Editar Role</button>
+                      <button onClick={() => handleIamEmergencyAction('reset_pass', user)} className="text-yellow-600 hover:underline text-xs font-bold">Reset Pass</button>
+                      {user.accountStatus === 'active' ? (
+                        <button onClick={() => handleIamEmergencyAction('block', user)} className="text-red-600 hover:underline text-xs font-bold">Bloquear</button>
+                      ) : (
+                        <button onClick={() => handleIamEmergencyAction('unblock', user)} className="text-green-600 hover:underline text-xs font-bold">Desbloquear</button>
+                      )}
+                      <button onClick={() => handleIamEmergencyAction('offboard', user)} className="text-gray-500 hover:underline text-xs font-bold">Offboard</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderITModule = () => (
+      <div className="space-y-6 animate-fadeIn">
+          <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto pb-1 mb-4">
+              {['logs', 'health', 'db', 'connectivity'].map(tab => (
+                  <button 
+                      key={tab}
+                      onClick={() => setItTab(tab as any)}
+                      className={`px-4 py-2 text-sm font-bold whitespace-nowrap ${itTab === tab ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-500 hover:text-gray-800'}`}
+                  >
+                      {tab.toUpperCase()}
+                  </button>
+              ))}
+          </div>
+
+          {/* ... (Previous Logs Tab) ... */}
+          {itTab === 'logs' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                   <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+                       <h4 className="font-bold text-gray-700">Logs do Sistema</h4>
+                       <select 
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                          value={itLogFilter}
+                          onChange={e => setItLogFilter(e.target.value as any)}
+                       >
+                           <option value="all">Todos os Níveis</option>
+                           <option value="error">Erros & Críticos</option>
+                           <option value="security">Segurança</option>
+                       </select>
+                   </div>
+                   <div className="max-h-[500px] overflow-y-auto">
+                       <table className="w-full text-left text-xs font-mono">
+                           <thead className="bg-gray-100 text-gray-600 sticky top-0">
+                               <tr>
+                                   <th className="p-3">Timestamp</th>
+                                   <th className="p-3">Level</th>
+                                   <th className="p-3">Module</th>
+                                   <th className="p-3">Message</th>
+                                   <th className="p-3">User/IP</th>
+                               </tr>
+                           </thead>
+                           <tbody className="divide-y divide-gray-100">
+                               {systemLogs
+                                   .filter(l => itLogFilter === 'all' ? true : itLogFilter === 'security' ? l.level === 'security' : (l.level === 'error' || l.level === 'critical'))
+                                   .map(log => (
+                                   <tr key={log.id} className="hover:bg-gray-50">
+                                       <td className="p-3 text-gray-500 whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td>
+                                       <td className="p-3">
+                                           <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${
+                                               log.level === 'info' ? 'bg-blue-100 text-blue-800' :
+                                               log.level === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                                               log.level === 'security' ? 'bg-purple-100 text-purple-800' :
+                                               'bg-red-100 text-red-800'
+                                           }`}>{log.level}</span>
+                                       </td>
+                                       <td className="p-3 font-bold text-gray-700">{log.module || 'System'}</td>
+                                       <td className="p-3 text-gray-800">{log.message}</td>
+                                       <td className="p-3 text-gray-500">{log.userId || log.ip}</td>
+                                   </tr>
+                               ))}
+                           </tbody>
+                       </table>
+                   </div>
+              </div>
+          )}
+
+          {itTab === 'health' && (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                       <h4 className="font-bold text-gray-800 mb-4">Uptime de Serviços</h4>
+                       <div className="space-y-4">
+                           {serviceHealth.map(svc => (
+                               <div key={svc.id} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-0">
+                                   <div className="flex items-center">
+                                       <div className={`w-2 h-2 rounded-full mr-3 ${svc.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                       <span className="font-medium text-gray-700">{svc.name}</span>
+                                   </div>
+                                   <div className="text-right">
+                                       <p className="text-xs font-bold text-gray-900">{svc.latency}ms</p>
+                                       <p className="text-[10px] text-gray-400">{svc.lastChecked}</p>
+                                   </div>
+                               </div>
+                           ))}
+                       </div>
+                   </div>
+               </div>
+          )}
+
+          {itTab === 'db' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h4 className="font-bold text-gray-800 mb-4 text-red-600 flex items-center">
+                      <AlertOctagon className="w-4 h-4 mr-2" /> Slow Queries (Performance)
+                  </h4>
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs font-mono">
+                          <thead className="bg-red-50 text-red-800">
+                              <tr>
+                                  <th className="p-2">Duration</th>
+                                  <th className="p-2">Origin</th>
+                                  <th className="p-2">Query Snippet</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {slowQueries.map(q => (
+                                  <tr key={q.id} className="border-b">
+                                      <td className="p-2 font-bold text-red-600">{q.duration}ms</td>
+                                      <td className="p-2">{q.origin}</td>
+                                      <td className="p-2 text-gray-600 truncate max-w-md" title={q.query}>{q.query}</td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          )}
+
+          {/* New Connectivity Tab for Kiá Protocol */}
+          {itTab === 'connectivity' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h4 className="font-bold text-gray-800 mb-4 flex items-center">
+                      <Server className="w-5 h-5 mr-2 text-brand-600" />
+                      Protocolo Kiá Connect - Controlo de Integridade
+                  </h4>
+                  
+                  <div className="bg-red-50 border border-red-200 p-6 rounded-lg">
+                      <h5 className="font-bold text-red-900 mb-2 flex items-center">
+                          <ServerCrash className="w-5 h-5 mr-2" />
+                          Simulação de Falha Crítica (Protocolo Inverso Ponto 4)
+                      </h5>
+                      <p className="text-sm text-red-700 mb-4">
+                          Esta ação simula um erro 500 no backend. Todos os utilizadores externos (Grupo A) verão imediatamente um ecrã de "Serviço Indisponível".
+                          Use isto para testar a resiliência e a resposta a incidentes.
+                      </p>
+                      
+                      <div className="flex items-center justify-between bg-white p-4 rounded border border-red-100">
+                          <div>
+                              <span className="text-sm font-bold text-gray-700">Estado Atual do Sistema:</span>
+                              <span className={`ml-2 px-3 py-1 rounded text-xs font-bold uppercase ${isSystemCritical ? 'bg-red-600 text-white' : 'bg-green-500 text-white'}`}>
+                                  {isSystemCritical ? 'CRÍTICO / DOWN' : 'OPERACIONAL'}
+                              </span>
+                          </div>
+                          
+                          <button 
+                              onClick={() => {
+                                  if (onToggleSystemStatus) {
+                                      if (isSystemCritical) {
+                                          addSystemLog('info', 'SYSTEM_RECOVERY', 'System manually restored by IT Admin.');
+                                      } else {
+                                          addSystemLog('critical', 'MANUAL_OUTAGE_TRIGGER', 'System outage triggered manually for drill/test.');
+                                      }
+                                      onToggleSystemStatus();
+                                  }
+                              }}
+                              className={`px-6 py-2 rounded font-bold text-white transition-colors ${isSystemCritical ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                          >
+                              {isSystemCritical ? 'Restaurar Serviço' : 'Derrubar Sistema (Simulação)'}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          )}
+      </div>
+  );
 
   return (
-    <div className="bg-white rounded-lg shadow min-h-screen">
-       <div className="border-b px-6 py-4 flex justify-between items-center bg-gray-50 rounded-t-lg sticky top-16 z-10">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center">
-              <LayoutDashboard className="w-6 h-6 mr-2 text-brand-600" />
-              Painel Administrativo
-          </h2>
-          {/* Module Selector - Simplified for mobile responsiveness */}
-          <div className="flex space-x-1 overflow-x-auto no-scrollbar max-w-[60%] md:max-w-none">
-               {hasPermission('view_operations_module') && (
-                   <button onClick={() => setActiveModule('operations')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors whitespace-nowrap ${activeModule === 'operations' ? 'bg-white shadow text-brand-600 ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}>Operações</button>
-               )}
-               {hasPermission('view_finance_module') && (
-                   <button onClick={() => setActiveModule('finance')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors whitespace-nowrap ${activeModule === 'finance' ? 'bg-white shadow text-brand-600 ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}>Finanças</button>
-               )}
-               {hasPermission('view_contracts_module') && (
-                   <button onClick={() => setActiveModule('contracts')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors whitespace-nowrap ${activeModule === 'contracts' ? 'bg-white shadow text-brand-600 ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}>Contratos</button>
-               )}
-               {hasPermission('view_communication_module') && (
-                   <button onClick={() => setActiveModule('communication')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors whitespace-nowrap ${activeModule === 'communication' ? 'bg-white shadow text-brand-600 ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}>Comunicação</button>
-               )}
-               {hasPermission('view_security_module') && (
-                   <button onClick={() => setActiveModule('security')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors whitespace-nowrap ${activeModule === 'security' ? 'bg-white shadow text-brand-600 ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}>Segurança</button>
-               )}
-               {hasPermission('view_infrastructure_module') && (
-                   <button onClick={() => setActiveModule('infrastructure')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors whitespace-nowrap ${activeModule === 'infrastructure' ? 'bg-white shadow text-brand-600 ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}>Infra</button>
-               )}
-          </div>
-       </div>
+    <div className="flex h-screen bg-gray-50 font-sans">
+        <aside className="w-64 bg-gray-900 text-white flex flex-col flex-shrink-0 transition-all duration-300">
+            <div className="p-6 flex items-center space-x-3">
+                <ShieldCheck className="w-8 h-8 text-brand-500" />
+                <span className="text-xl font-bold tracking-tight">Admin<span className="text-brand-500">Panel</span></span>
+            </div>
+            {/* ... Navigation (Same as before) ... */}
+            <nav className="flex-1 px-4 space-y-2 overflow-y-auto scrollbar-hide">
+                {hasPermission('view_operations_module') && (
+                    <button onClick={() => setActiveModule('operations')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeModule === 'operations' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
+                        <LayoutDashboard className="w-5 h-5" /> <span className="font-medium">Operações</span>
+                    </button>
+                )}
+                 {hasPermission('view_communication_module') && (
+                    <button onClick={() => setActiveModule('communication')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeModule === 'communication' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
+                        <Megaphone className="w-5 h-5" /> <span className="font-medium">Comunicação</span>
+                    </button>
+                )}
+                {hasPermission('view_iam_module') && (
+                    <button onClick={() => setActiveModule('iam')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeModule === 'iam' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
+                        <UserCog className="w-5 h-5" /> <span className="font-medium">IAM & Users</span>
+                    </button>
+                )}
+                {hasPermission('view_finance_module') && (
+                    <button onClick={() => setActiveModule('finance')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeModule === 'finance' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
+                        <DollarSign className="w-5 h-5" /> <span className="font-medium">Finanças</span>
+                    </button>
+                )}
+                {hasPermission('view_security_module') && (
+                    <button onClick={() => setActiveModule('security')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeModule === 'security' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
+                        <ShieldCheck className="w-5 h-5" /> <span className="font-medium">Segurança</span>
+                    </button>
+                )}
+                {hasPermission('view_compliance_module') && (
+                    <button onClick={() => setActiveModule('compliance')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeModule === 'compliance' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
+                        <Scale className="w-5 h-5" /> <span className="font-medium">Compliance</span>
+                    </button>
+                )}
+                {hasPermission('view_audit_module') && (
+                    <button onClick={() => setActiveModule('audit')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeModule === 'audit' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
+                        <Activity className="w-5 h-5" /> <span className="font-medium">Auditoria</span>
+                    </button>
+                )}
+                {hasPermission('view_it_module') && (
+                    <button onClick={() => setActiveModule('it')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeModule === 'it' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
+                        <Terminal className="w-5 h-5" /> <span className="font-medium">Sistema & TI</span>
+                    </button>
+                )}
+            </nav>
+        </aside>
 
-       <div className="p-6">
-           {activeModule === 'operations' && renderOperations()}
-           {activeModule === 'finance' && renderFinance()}
-           {activeModule === 'contracts' && renderContracts()}
-           {activeModule === 'communication' && renderCommunications()}
-           {activeModule === 'security' && renderSecurity()}
-           {activeModule === 'infrastructure' && renderIT()}
-       </div>
-
-       {/* Modals */}
-       <SecurityConfirmationModal 
-           isOpen={confirmation.isOpen}
-           title={confirmation.title}
-           description={confirmation.description}
-           onConfirm={handleConfirmAction}
-           onCancel={() => setConfirmation({ ...confirmation, isOpen: false })}
-           variant={confirmation.variant}
-       />
-       
-       {renderChatAuditModal()}
-
-       {rejectDialog.isOpen && (
-            <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-                <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
-                    <div className="bg-red-50 p-4 border-b border-red-100 flex items-center">
-                        <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                        <h3 className="font-bold text-red-900">Rejeitar Anúncio</h3>
+        <main className="flex-1 overflow-y-auto bg-gray-50">
+            <header className="bg-white shadow-sm px-8 py-4 flex justify-between items-center sticky top-0 z-40">
+                <h2 className="text-xl font-bold text-gray-800 capitalize">{activeModule.replace('_', ' ')}</h2>
+                <div className="flex items-center space-x-4">
+                    {/* System Critical Status Indicator for Internal Team */}
+                    {isSystemCritical && (
+                        <div className="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold animate-pulse flex items-center">
+                            <ServerCrash className="w-4 h-4 mr-2" /> SYSTEM DOWN (SIM)
+                        </div>
+                    )}
+                    <div className="flex items-center space-x-2 border-l pl-4 border-gray-200">
+                        <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-xs">
+                            {currentUserRole.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-sm font-medium text-gray-700 capitalize">{currentUserRole.replace('_', ' ')}</span>
                     </div>
-                    <div className="p-6">
-                        <p className="text-sm text-gray-600 mb-4">
-                            Por favor, indique o motivo da rejeição. <span className="font-bold">Esta mensagem será enviada ao proprietário</span> para que ele possa corrigir o anúncio.
-                        </p>
-                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                            Motivo da Rejeição <span className="text-red-500">*</span>
-                        </label>
-                        <textarea 
-                            className="w-full border border-gray-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 h-32 resize-none"
-                            placeholder="Ex: As fotos não estão nítidas; O preço parece incorreto; Faltam documentos..."
-                            value={rejectDialog.reason}
-                            onChange={e => setRejectDialog({...rejectDialog, reason: e.target.value})}
-                        ></textarea>
-                    </div>
-                    <div className="bg-gray-50 p-4 flex justify-end space-x-3">
-                        <button onClick={() => setRejectDialog({...rejectDialog, isOpen: false})} className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium text-sm">Cancelar</button>
-                        <button 
-                            onClick={confirmRejection} 
-                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-sm text-sm flex items-center"
-                        >
-                            <XCircle className="w-4 h-4 mr-2" />
-                            Confirmar Rejeição
+                </div>
+            </header>
+
+            <div className="p-8">
+                {activeModule === 'operations' && renderOperations()}
+                {activeModule === 'finance' && renderFinance()}
+                {activeModule === 'security' && renderSecurity()}
+                {activeModule === 'compliance' && renderCompliance()}
+                {activeModule === 'audit' && renderAudit()}
+                {activeModule === 'team' && renderTeam()}
+                {activeModule === 'contracts' && renderContracts()}
+                {activeModule === 'infrastructure' && renderInfrastructure()}
+                {activeModule === 'communication' && renderCommunication()}
+                {activeModule === 'iam' && renderIAM()}
+                {activeModule === 'it' && renderITModule()}
+            </div>
+        </main>
+
+        {viewingProperty && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <div className="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                        <h3 className="text-xl font-bold text-gray-900">Detalhes do Imóvel</h3>
+                        <button onClick={() => setViewingProperty(null)} className="text-gray-500 hover:text-gray-800">
+                            <X className="w-6 h-6" />
                         </button>
+                    </div>
+                    <div className="overflow-y-auto p-6 flex-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <div className="aspect-video rounded-lg overflow-hidden border border-gray-200">
+                                    <img src={viewingProperty.images[0]} className="w-full h-full object-cover" alt="Main" />
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div>
+                                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                                        viewingProperty.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                        viewingProperty.status === 'available' ? 'bg-green-100 text-green-800' : 
+                                        viewingProperty.status === 'approved_waiting_payment' ? 'bg-blue-100 text-blue-800' :
+                                        'bg-gray-100'
+                                    }`}>
+                                        {viewingProperty.status.replace('_', ' ')}
+                                    </span>
+                                    <h2 className="text-2xl font-bold text-gray-900 mt-2">{viewingProperty.title}</h2>
+                                    <p className="text-brand-600 font-bold text-xl">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: viewingProperty.currency }).format(viewingProperty.price)}</p>
+                                </div>
+                                <div className="text-sm space-y-2 text-gray-600">
+                                    <p><span className="font-bold">Localização:</span> {viewingProperty.location.address}, {viewingProperty.location.municipality}</p>
+                                    <p><span className="font-bold">Proprietário:</span> {viewingProperty.ownerId}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {viewingProperty.status === 'pending' && (
+                        <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3 shrink-0">
+                            <button 
+                                onClick={() => openRejectDialog(viewingProperty.id)}
+                                className="px-6 py-3 bg-white border border-red-200 text-red-600 rounded-lg font-bold hover:bg-red-50 flex items-center shadow-sm"
+                            >
+                                <XCircle className="w-5 h-5 mr-2" /> Rejeitar
+                            </button>
+                            <button 
+                                onClick={() => handlePropertyAction(viewingProperty.id, 'approve')}
+                                className="px-6 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 flex items-center shadow-md"
+                            >
+                                <CheckCircle className="w-5 h-5 mr-2" /> Aprovar & Solicitar Pagamento
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+
+        {/* ... (Existing Reject Dialog and Modals) ... */}
+        {/* Important: Ensure SecurityConfirmationModal is used for Kiá Connect actions */}
+        <SecurityConfirmationModal 
+            isOpen={confirmation.isOpen}
+            title={confirmation.title}
+            description={confirmation.description}
+            onConfirm={handleConfirmAction}
+            onCancel={() => setConfirmation({ ...confirmation, isOpen: false })}
+            variant={confirmation.variant}
+        />
+        
+        {/* Blog Post Editor Modal */}
+        {editingPost && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+                <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+                    <div className="p-4 border-b flex justify-between items-center">
+                        <h3 className="text-lg font-bold text-gray-900">Editor de Conteúdo</h3>
+                        <button onClick={() => setEditingPost(null)}><X className="w-5 h-5" /></button>
+                    </div>
+                    <div className="p-6 space-y-4 overflow-y-auto">
+                        <input type="text" placeholder="Título do Artigo" value={editingPost.title} onChange={e => setEditingPost({...editingPost, title: e.target.value})} className="w-full p-2 border rounded font-bold text-xl" />
+                        <input type="text" placeholder="Meta Título (SEO)" value={editingPost.metaTitle || ''} onChange={e => setEditingPost({...editingPost, metaTitle: e.target.value})} className="w-full p-2 border rounded text-sm" />
+                        <textarea placeholder="Meta Descrição (SEO)" value={editingPost.metaDescription || ''} onChange={e => setEditingPost({...editingPost, metaDescription: e.target.value})} className="w-full p-2 border rounded text-sm h-16"></textarea>
+                        <textarea placeholder="Conteúdo HTML..." value={editingPost.content} onChange={e => setEditingPost({...editingPost, content: e.target.value})} className="w-full p-2 border rounded text-sm font-mono h-48"></textarea>
+                        
+                        {/* Legal Approval Section */}
+                        {editingPost.status === 'pending_legal' && (hasPermission('approve_content') || hasPermission('admin')) && (
+                             <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                 <h4 className="font-bold text-yellow-800 mb-2">Ação de Compliance (RJC)</h4>
+                                 <div className="flex items-center space-x-2">
+                                     <button onClick={handlePublishPost} className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold">Aprovar & Publicar</button>
+                                     <input type="text" value={postRejectionReason} onChange={e => setPostRejectionReason(e.target.value)} placeholder="Justificativa para rejeitar..." className="flex-1 p-1 border rounded text-xs" />
+                                     <button onClick={handleRejectPost} className="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold">Rejeitar</button>
+                                 </div>
+                             </div>
+                        )}
+                    </div>
+                    <div className="bg-gray-50 p-4 border-t flex justify-end space-x-3">
+                        <button onClick={() => setEditingPost(null)} className="text-gray-600">Cancelar</button>
+                        <button onClick={handleSavePost} className="bg-white border rounded px-3 py-1 font-bold">Guardar Rascunho</button>
+                        {hasPermission('publish_content') && editingPost.status !== 'pending_legal' && (
+                             <button onClick={handlePublishPost} className="bg-green-600 text-white rounded px-3 py-1 font-bold">Publicar Direto</button>
+                        )}
+                        {!hasPermission('publish_content') && editingPost.status !== 'pending_legal' && (
+                             <button onClick={handleSubmitForReview} className="bg-brand-600 text-white rounded px-3 py-1 font-bold">Submeter p/ Revisão</button>
+                        )}
                     </div>
                 </div>
             </div>
-       )}
+        )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, FileText, CreditCard, PenTool, CheckCircle, Lock, Download, ChevronRight, AlertCircle, Building, Smartphone, Loader2, ShieldCheck, Hash, Landmark, MapPin, Phone, Scale, HelpCircle, Sparkles } from 'lucide-react';
+import { X, FileText, CreditCard, PenTool, CheckCircle, Lock, Download, ChevronRight, AlertCircle, Building, Smartphone, Loader2, ShieldCheck, Hash, Landmark, MapPin, Phone, Scale, HelpCircle, Sparkles, Star } from 'lucide-react';
 import { Property, User } from '../types';
 import { generateContract } from '../services/aiService';
 
@@ -11,7 +11,7 @@ interface TransactionModalProps {
   user: User;
 }
 
-type Step = 'form' | 'fee_payment' | 'contract_generation' | 'signature' | 'final_payment' | 'complete';
+type Step = 'form' | 'fee_payment' | 'contract_generation' | 'signature' | 'final_payment' | 'complete' | 'feedback';
 type PaymentStatus = 'idle' | 'processing' | 'success';
 type FeePaymentMethod = 'express' | 'reference' | 'transfer';
 
@@ -24,6 +24,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, pr
   // AI Contract State
   const [contractText, setContractText] = useState<string>('');
   const [isGeneratingContract, setIsGeneratingContract] = useState(false);
+  
+  // Rating State
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
   
   // Form State
   const [formData, setFormData] = useState({
@@ -51,6 +55,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, pr
         setBiConfirmed(false);
         setFeeMethod('express');
         setContractText('');
+        setRating(0);
+        setComment('');
     }
   }, [isOpen]);
 
@@ -90,6 +96,11 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, pr
           // Simulate redirection to WhatsApp Support
           window.open(`https://wa.me/244921442552?text=Olá, preciso de apoio jurídico sobre o contrato do imóvel ${property.id} (${property.title}).`, "_blank");
       }
+  };
+
+  const submitFeedback = () => {
+      alert("Obrigado pelo seu feedback! A sua opinião ajuda a manter a confiança no Arrendaki.");
+      onClose();
   };
 
   const renderPaymentOverlay = () => {
@@ -555,7 +566,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, pr
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900 mb-4">Parabéns!</h2>
           <p className="text-lg text-gray-600 mb-8">
-              O pagamento do {property.listingType === 'Arrendar' ? 'arrendamento' : 'sinal'} foi confirmado e o imóvel está garantido. <br/>
+              O pagamento foi confirmado e o imóvel está garantido. <br/>
               O proprietário entrará em contacto para a entrega das chaves.
           </p>
           <div className="bg-gray-50 p-4 rounded-lg inline-block text-left mb-8">
@@ -568,10 +579,47 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, pr
           </div>
           <br/>
           <button 
-            onClick={onClose}
+            onClick={() => setStep('feedback')}
             className="bg-brand-500 text-white px-8 py-3 rounded-lg font-bold hover:bg-brand-600 shadow-lg"
           >
-              Voltar aos meus imóveis
+              Finalizar & Avaliar Experiência
+          </button>
+      </div>
+  );
+
+  const renderFeedback = () => (
+      <div className="p-6 text-center animate-fadeIn">
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Como foi a sua experiência?</h3>
+          <p className="text-gray-500 text-sm mb-6">A sua opinião é fundamental para mantermos a qualidade do Kiá Verify.</p>
+          
+          <div className="flex justify-center space-x-2 mb-6">
+              {[1, 2, 3, 4, 5].map((star) => (
+                  <button 
+                    key={star} 
+                    onClick={() => setRating(star)}
+                    className="focus:outline-none transition-transform hover:scale-110"
+                  >
+                      <Star 
+                        className={`w-10 h-10 ${star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                      />
+                  </button>
+              ))}
+          </div>
+
+          <textarea 
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-brand-500 focus:border-brand-500 mb-6"
+              placeholder="Conte-nos o que achou do processo (Opcional)..."
+              rows={4}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+          ></textarea>
+
+          <button 
+            onClick={submitFeedback}
+            disabled={rating === 0}
+            className="w-full bg-gray-900 text-white py-3 rounded-lg font-bold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+              Enviar Avaliação
           </button>
       </div>
   );
@@ -587,7 +635,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, pr
             <div className="flex items-center space-x-2">
                 {property.listingType === 'Arrendar' ? <FileText className="w-5 h-5 text-brand-500"/> : <Building className="w-5 h-5 text-brand-500" />}
                 <span className="font-bold text-lg">
-                    {step === 'complete' ? 'Concluído' : property.listingType === 'Arrendar' ? 'Processo de Arrendamento' : 'Processo de Compra'}
+                    {step === 'complete' || step === 'feedback' ? 'Concluído' : property.listingType === 'Arrendar' ? 'Processo de Arrendamento' : 'Processo de Compra'}
                 </span>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -596,7 +644,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, pr
         </div>
 
         {/* Progress Bar */}
-        {step !== 'complete' && (
+        {step !== 'complete' && step !== 'feedback' && (
             <div className="bg-gray-100 h-1.5 w-full">
                 <div 
                     className="bg-brand-500 h-full transition-all duration-500"
@@ -618,6 +666,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, pr
             {step === 'signature' && renderSignature()}
             {step === 'final_payment' && renderFinalPayment()}
             {step === 'complete' && renderComplete()}
+            {step === 'feedback' && renderFeedback()}
         </div>
       </div>
     </div>

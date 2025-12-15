@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { MapPin, Bed, Bath, Maximize, ShieldCheck, CheckCircle } from 'lucide-react';
+import { MapPin, Bed, Bath, Maximize, ShieldCheck, CheckCircle, Lock } from 'lucide-react';
 import { Property } from '../types';
 
 interface PropertyCardProps {
@@ -10,7 +10,9 @@ interface PropertyCardProps {
 
 const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.location.municipality}, ${property.location.province}, Angola`)}`;
+  
+  // Construct precise Google Maps Query
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.location.address}, ${property.location.municipality}, ${property.location.province}, Angola`)}`;
 
   return (
     <div 
@@ -35,12 +37,22 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
         <div className="absolute top-3 left-3 bg-brand-500 text-white text-xs font-bold px-2 py-1 rounded shadow z-20">
           {property.listingType.toUpperCase()}
         </div>
-        {property.isGuaranteed && (
-          <div className="absolute top-3 right-3 bg-accent-600 text-white text-xs font-bold px-2 py-1 rounded shadow flex items-center space-x-1 z-20">
-            <ShieldCheck className="w-3 h-3" />
-            <span>GARANTIDO</span>
-          </div>
-        )}
+
+        {/* Security & Trust Badges */}
+        <div className="absolute top-3 right-3 flex flex-col items-end space-y-1 z-20">
+            {property.isVerified && (
+                <div className="bg-white/95 backdrop-blur text-brand-700 text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center border border-brand-200">
+                    <ShieldCheck className="w-3 h-3 mr-1 text-brand-600" />
+                    <span>VERIFICADO</span>
+                </div>
+            )}
+            {property.isGuaranteed && (
+              <div className="bg-accent-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center">
+                <Lock className="w-3 h-3 mr-1" />
+                <span>GARANTIDO</span>
+              </div>
+            )}
+        </div>
       </div>
 
       <div className="p-4">
@@ -59,9 +71,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
             href={googleMapsUrl}
             target="_blank" 
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="truncate hover:text-brand-500 hover:underline z-10"
-            title="Ver no Google Maps"
+            onClick={(e) => e.stopPropagation()} // Prevent card click event
+            className="truncate hover:text-brand-500 hover:underline z-10 transition-colors"
+            title="Ver localização no Google Maps"
           >
             {property.location.municipality}, {property.location.province}
           </a>

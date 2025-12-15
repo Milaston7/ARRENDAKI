@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Layout from './components/Layout';
 import Hero from './components/Hero';
 import PropertyCard from './components/PropertyCard';
@@ -7,13 +7,15 @@ import PropertyForm from './components/PropertyForm';
 import ChatWindow from './components/ChatWindow';
 import RegistrationForm from './components/RegistrationForm';
 import UserProfile from './components/UserProfile';
-import ImageLightbox from './components/ImageLightbox'; 
-import TransactionModal from './components/TransactionModal';
+// ImageLightbox, TransactionModal, SchedulingModal removed from direct import as they are now in PropertyDetail
 import AdminPanel from './components/AdminPanel'; 
-import SchedulingModal from './components/SchedulingModal'; // Import new modal
-import { MOCK_PROPERTIES, MOCK_BLOG_POSTS, MOCK_VISITS } from './services/mockData';
-import { Property, User, FilterState, UserRole, VisitRequest } from './types';
-import { ArrowLeft, CheckCircle, ChevronLeft, ChevronRight, MapPin, Image as ImageIcon, ZoomIn, FileText, ShoppingBag, ExternalLink, ShieldAlert, Film, Lock, Shield, Edit3, BookOpen, Clock, User as UserIcon, Key, ShieldCheck, LogIn } from 'lucide-react';
+import AboutUs from './components/AboutUs'; 
+import PropertyDetail from './components/PropertyDetail'; // New Import
+import BlogList from './components/BlogList'; // New Import
+import TrustSection from './components/TrustSection'; // New Import
+import { MOCK_PROPERTIES, MOCK_BLOG_POSTS, MOCK_VISITS, MOCK_USERS, MOCK_CONTRACTS, MOCK_DOCUMENTS, MOCK_AUDIT_LOGS } from './services/mockData';
+import { Property, User, FilterState, UserRole, VisitRequest, Notification, BlogPost, Contract, DocumentRecord, AuditLog } from './types';
+import { ArrowLeft, CheckCircle, ChevronLeft, ChevronRight, MapPin, Image as ImageIcon, ZoomIn, FileText, ShoppingBag, ExternalLink, ShieldAlert, Film, Lock, Shield, Edit3, BookOpen, Clock, User as UserIcon, Key, ShieldCheck, LogIn, Scale, ServerCrash } from 'lucide-react';
 
 // Images representing provinces with authentic vibes
 const PROVINCE_HIGHLIGHTS = [
@@ -40,19 +42,29 @@ const PROVINCE_HIGHLIGHTS = [
 ];
 
 const App: React.FC = () => {
-  const [view, setView] = useState('home'); // home, blog, detail, add-property, chat, login, register, profile, admin
+  const [view, setView] = useState('home'); // home, blog, detail, add-property, chat, login, register, profile, admin, about
   const [user, setUser] = useState<User | null>(null);
+  
+  // KIÁ CONNECT CENTRAL STATE
   const [properties, setProperties] = useState<Property[]>(MOCK_PROPERTIES);
+  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>(MOCK_BLOG_POSTS); // Centralized Blog State
+  const [contracts, setContracts] = useState<Contract[]>(MOCK_CONTRACTS);
+  const [documents, setDocuments] = useState<DocumentRecord[]>(MOCK_DOCUMENTS);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(MOCK_AUDIT_LOGS); // Lifted state for global auditing
+  
+  // PROTOCOL STATE: System Integrity
+  const [isSystemCritical, setIsSystemCritical] = useState(false);
+
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [searchFilters, setSearchFilters] = useState<Partial<FilterState>>({});
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [isMainImageLoading, setIsMainImageLoading] = useState(true);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   
+  // Chat State
+  const [currentChatId, setCurrentChatId] = useState<string>('default');
+
   // Visit Management State
   const [visits, setVisits] = useState<VisitRequest[]>(MOCK_VISITS);
-  const [isSchedulingModalOpen, setIsSchedulingModalOpen] = useState(false);
 
   // Login / 2FA State
   const [isStaffLoginMode, setIsStaffLoginMode] = useState(false);
@@ -66,36 +78,174 @@ const App: React.FC = () => {
   const [loginPassword, setLoginPassword] = useState('');
   const [selectedSimulatedRole, setSelectedSimulatedRole] = useState<UserRole>('tenant');
 
-  // Reset image index when opening a property
-  useEffect(() => {
-    setActiveImageIndex(0);
-    setIsLightboxOpen(false);
-    setIsTransactionModalOpen(false);
-    setIsSchedulingModalOpen(false);
-  }, [selectedPropertyId]);
+  // --- KIÁ CONNECT EVENT HUB ---
+  const addAuditLog = (action: string, target: string, details: string, status: 'SUCCESS' | 'FAIL' | 'WARNING') => {
+      const actorId = user ? user.id : 'SYSTEM';
+      const newLog: AuditLog = {
+          id: `audit_${Date.now()}`,
+          action,
+          actor: actorId,
+          target,
+          timestamp: new Date().toISOString(),
+          status,
+          details,
+          ip: '127.0.0.1' // Mock IP
+      };
+      setAuditLogs(prev => [newLog, ...prev]);
+  };
 
-  // Reset loading state when active image changes
-  useEffect(() => {
-    setIsMainImageLoading(true);
-  }, [activeImageIndex, selectedPropertyId]);
+  const createNotification = (userId: string, title: string, message: string, type: Notification['type']) => {
+      const newNotification: Notification = {
+          id: `note_${Date.now()}`,
+          userId,
+          title,
+          message,
+          type,
+          isRead: false,
+          timestamp: new Date().toISOString()
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+  };
 
-  // Simulating filters - Only show available properties to normal users
-  const filteredProperties = properties.filter(p => {
-    // If Admin/Manager, show pending too (filtered in AdminPanel, but here we filter global list)
-    // Actually, AdminPanel receives all properties. 
-    // This list is for the PUBLIC view.
-    if (p.status !== 'available' && p.status !== 'rented' && p.status !== 'sold') return false; 
-    if (searchFilters.province && p.location.province !== searchFilters.province) return false;
-    if (searchFilters.type && p.type !== searchFilters.type) return false;
-    if (searchFilters.minPrice && p.price < searchFilters.minPrice) return false;
-    if (searchFilters.maxPrice && p.price > searchFilters.maxPrice) return false;
-    return true;
-  });
+  const handleUpdateProperty = (id: string, updates: Partial<Property>) => {
+      const oldProp = properties.find(p => p.id === id);
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+
+      // KIÁ CONNECT PROTOCOL: INVERSE CONNECTIVITY (Admin -> User)
+      // Protocol Point 1: Approval of Kiá Verify Dossier
+      if (oldProp) {
+          // Status Change Trigger
+          if (updates.status && updates.status !== oldProp.status) {
+              if (updates.status === 'approved_waiting_payment') {
+                  createNotification(
+                      oldProp.ownerId, 
+                      'Dossiê Kiá Verify Aprovado', 
+                      `O seu imóvel "${oldProp.title}" passou na verificação de conformidade. Proceda ao pagamento da taxa de publicação para ativar o selo Kiá Verified.`, 
+                      'success'
+                  );
+              } else if (updates.status === 'rejected') {
+                  createNotification(
+                      oldProp.ownerId, 
+                      'Dossiê Rejeitado', 
+                      `O seu imóvel "${oldProp.title}" não passou na verificação. Motivo: ${updates.rejectionReason}. Por favor, corrija os dados.`, 
+                      'error'
+                  );
+              }
+          }
+      }
+  };
+
+  const handleUpdateUser = (id: string, updates: Partial<User>, reason?: string) => {
+      const oldUser = users.find(u => u.id === id);
+
+      if (oldUser) {
+          if (updates.phone && updates.phone !== oldUser.phone) {
+              addAuditLog('USER_UPDATE_CRITICAL', id, `Telefone alterado de '${oldUser.phone || ''}' para '${updates.phone}'.`, 'WARNING');
+          }
+          if (updates.email && updates.email !== oldUser.email) {
+              addAuditLog('USER_UPDATE_CRITICAL', id, `Email alterado de '${oldUser.email}' para '${updates.email}'.`, 'WARNING');
+          }
+      }
+      
+      // If we are updating the CURRENT user, sync state
+      if (user && user.id === id) {
+          setUser({ ...user, ...updates });
+      }
+      
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+
+      // KIÁ CONNECT PROTOCOL: IAM TRIGGERS
+      if (updates.accountStatus) {
+          // Protocol Inverse Point 3: Fraud Suspension
+          if (updates.accountStatus === 'suspended_legal') {
+              if (user && user.id === id) {
+                  alert(`Acesso Temporariamente Suspenso.\n\nMotivo da Auditoria: ${reason || 'Irregularidades detetadas no Dossiê Kiá Verify.'}\nContacte o Compliance.`);
+                  handleLogout();
+              }
+          } 
+          // Protocol Inverse Point 2: Force Reset / Block
+          else if (updates.accountStatus === 'blocked') {
+              if (user && user.id === id) {
+                  alert(`Sessão Invalidada.\n\nMotivo: ${reason || 'Ação administrativa de segurança.'}\nPor favor, faça login novamente para redefinir as credenciais.`);
+                  handleLogout();
+              }
+          }
+          else if (updates.accountStatus === 'active') {
+              createNotification(id, 'Conta Ativada', `O seu acesso foi restaurado. ${reason ? `Nota: ${reason}` : ''}`, 'success');
+          }
+      }
+      
+      // Protocol Inverse Point 1: Verification Badge
+      if (updates.isIdentityVerified === true) {
+          createNotification(id, 'Identidade Verificada', 'Parabéns! O seu Dossiê de Identidade foi aprovado pelo Analista. O selo Kiá Verified está ativo.', 'success');
+      }
+  };
+
+  const handleUpdateBlogPost = (id: string, updates: Partial<BlogPost>) => {
+      setBlogPosts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  };
+  
+  const handleAddBlogPost = (newPost: BlogPost) => {
+      setBlogPosts(prev => [newPost, ...prev]);
+  };
+
+  const handleUpdateContractStatus = (contractId: string, status: Contract['status'], reason?: string) => {
+      setContracts(prev => prev.map(c => c.id === contractId ? {...c, status, signedAt: status === 'active' ? new Date().toISOString() : c.signedAt } : c));
+      if (status === 'active') {
+          createNotification(user!.id, 'Contrato Assinado', `O contrato ${contractId} foi assinado digitalmente com sucesso.`, 'success');
+          addAuditLog('CONTRACT_SIGNED', contractId, `Utilizador ${user!.id} assinou digitalmente o contrato.`, 'SUCCESS');
+      } else if (status === 'terminated' && reason) {
+          createNotification(user!.id, 'Contrato Recusado', `Recusou o contrato ${contractId}. Motivo: ${reason}. A equipa de Compliance entrará em contacto.`, 'warning');
+          addAuditLog('CONTRACT_REFUSED', contractId, `Utilizador ${user!.id} recusou o contrato. Motivo: ${reason}`, 'WARNING');
+      }
+  };
+
+  const handleFeePayment = (propertyId: string) => {
+    const prop = properties.find(p => p.id === propertyId);
+    if (!prop) return;
+
+    // Log the action for admin visibility
+    addAuditLog('FEE_PAYMENT_SUCCESS', propertyId, `Taxa de publicação de 3.000 AOA recebida.`, 'SUCCESS');
+
+    // Update property status to 'available' and mark as verified
+    setProperties(prev => prev.map(p => 
+      p.id === propertyId 
+      ? { ...p, status: 'available', isVerified: true } 
+      : p
+    ));
+
+    // Notify the user of the success
+    createNotification(
+      prop.ownerId, 
+      'Imóvel Publicado!', 
+      `O seu imóvel "${prop.title}" foi publicado com sucesso e o selo Kiá Verified está ativo.`, 
+      'success'
+    );
+  };
+
+
+  // Optimize filtering with useMemo to prevent re-calculations on every render
+  const filteredProperties = useMemo(() => {
+    return properties.filter(p => {
+        // If Admin/Manager, show pending too (filtered in AdminPanel, but here we filter global list)
+        // Actually, AdminPanel receives all properties. 
+        // This list is for the PUBLIC view.
+        if (p.status !== 'available' && p.status !== 'rented' && p.status !== 'sold') return false; 
+        if (searchFilters.province && p.location.province !== searchFilters.province) return false;
+        if (searchFilters.type && p.type !== searchFilters.type) return false;
+        if (searchFilters.minPrice && p.price < searchFilters.minPrice) return false;
+        if (searchFilters.maxPrice && p.price > searchFilters.maxPrice) return false;
+        if (searchFilters.listingType && p.listingType !== searchFilters.listingType) return false;
+        return true;
+    });
+  }, [properties, searchFilters]);
 
   // Featured Properties Logic
-  const featuredProperties = properties.filter(p => p.isGuaranteed && p.status === 'available').slice(0, 4);
+  const featuredProperties = useMemo(() => {
+      return properties.filter(p => p.isGuaranteed && p.status === 'available').slice(0, 4);
+  }, [properties]);
 
-  // Regular Login
+  // Regular Login (External Group)
   const handleStandardLogin = () => {
     if (!loginEmail || !loginPassword) {
         alert("Por favor, preencha o email e a senha.");
@@ -104,21 +254,64 @@ const App: React.FC = () => {
 
     // SIMULATION MAPPING
     const role = selectedSimulatedRole;
-    let mockUser: User;
+    let mockUser: User | undefined;
 
-    if (role === 'owner') {
-        mockUser = { id: 'owner1', name: 'João Proprietário', email: loginEmail, role: 'owner', isAuthenticated: true, phone: '923111222', isIdentityVerified: true };
-    } else if (role === 'broker') {
-        mockUser = { id: 'broker1', name: 'Imobiliária Horizonte', email: loginEmail, role: 'broker', isAuthenticated: true, phone: '933444555', isIdentityVerified: true };
-    } else if (role === 'legal_rep') {
-        mockUser = { id: 'rep1', name: 'Dr. Paulo Silva', email: loginEmail, role: 'legal_rep', isAuthenticated: true, phone: '944555666', isIdentityVerified: true, representedEntityName: 'Grupo Vencedor Lda', representedEntityID: '541223321' };
+    // Find in centralized user DB first
+    const existingUser = users.find(u => u.email === loginEmail);
+    
+    if (existingUser) {
+        mockUser = existingUser;
     } else {
-        // Tenant
-        mockUser = { id: 'usr_123', name: 'Maria Inquilina', email: loginEmail, role: 'tenant', isAuthenticated: true, phone: '911222333', isIdentityVerified: true };
+        // Fallback for demo if not in predefined list (creates new session user based on role)
+        // Based on Group A Definition
+        if (role === 'owner') {
+            mockUser = { id: 'owner1', name: 'João Proprietário', email: loginEmail, role: 'owner', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '923111222', isIdentityVerified: true };
+        } else if (role === 'broker') {
+            mockUser = { id: 'broker1', name: 'Imobiliária Horizonte', email: loginEmail, role: 'broker', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '933444555', isIdentityVerified: true };
+        } else if (role === 'legal_rep') {
+            mockUser = { id: 'rep1', name: 'Dr. Paulo Silva', email: loginEmail, role: 'legal_rep', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '944555666', isIdentityVerified: true, representedEntityName: 'Grupo Vencedor Lda', representedEntityID: '541223321' };
+        } else {
+            // Tenant
+            mockUser = { id: 'usr_123', name: 'Maria Inquilina', email: loginEmail, role: 'tenant', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '911222333', isIdentityVerified: true };
+        }
+    }
+
+    // KIÁ CONNECT: SECURITY CHECK ON LOGIN
+    if (mockUser.accountStatus === 'blocked') {
+        alert("ACESSO NEGADO: Conta bloqueada por motivos de segurança. Contacte o suporte.");
+        return;
+    }
+    if (mockUser.accountStatus === 'suspended_legal') {
+        alert("ACESSO SUSPENSO: A sua conta encontra-se sob auditoria de conformidade. Por favor, aguarde o contacto da equipa Kiá Verify.");
+        return;
     }
 
     setUser(mockUser);
-    setView('home');
+    
+    // Redirect Logic (Prompt 2.2)
+    handleExternalUserRedirect(mockUser);
+  };
+
+  const handleExternalUserRedirect = (user: User) => {
+      // 1. New Owner (No properties) -> Add Property
+      if (user.role === 'owner' || user.role === 'broker') {
+          const hasProps = properties.some(p => p.ownerId === user.id);
+          if (!hasProps) {
+              setView('add-property');
+              return;
+          }
+          // 2. Owner with Pending -> Profile/Dashboard
+          const hasPending = properties.some(p => p.ownerId === user.id && p.status === 'pending');
+          if (hasPending) {
+              setView('profile'); // Dashboard
+              return;
+          }
+          // 3. Owner Active -> Profile/Dashboard
+          setView('profile');
+      } else {
+          // 4. Tenant -> Search (Home)
+          setView('home');
+      }
   };
 
   // Staff Login Init - Step 1: Select Role
@@ -139,7 +332,7 @@ const App: React.FC = () => {
     setStaffLoginStep('2fa');
   };
 
-  // 2FA Verification Mock - Step 3: Verify Code
+  // 2FA Verification Mock - Step 3: Verify Code (Internal Group)
   const verify2FA = () => {
       if (twoFACode === '123456') {
           const role = pendingStaffRole!;
@@ -147,19 +340,24 @@ const App: React.FC = () => {
               'admin': 'Administrador',
               'commercial_manager': 'Gestor Comercial',
               'security_manager': 'Gestor de Segurança',
+              'legal_compliance': 'Jurídico & Compliance',
               'collaborator': 'Colaborador',
               'it_tech': 'Técnico de TI'
           };
 
-          setUser({
+          const newStaffUser: User = {
               id: 'staff_' + role,
               name: roleNameMap[role] || 'Staff User',
               email: staffCredentials.email || `${role}@arrendaki.ao`,
               role: role,
+              group: 'internal', // Enforce Group B
+              accountStatus: 'active',
               isAuthenticated: true,
               is2FAEnabled: true,
               profileImage: '' // Placeholder
-          });
+          };
+
+          setUser(newStaffUser);
           
           // Reset State
           setStaffLoginStep('roles');
@@ -167,6 +365,7 @@ const App: React.FC = () => {
           setTwoFACode('');
           setStaffCredentials({ email: '', password: '' });
           
+          // Force Redirect to Admin Panel (Segregation Rule 2.1)
           setView('admin');
       } else {
           alert('Código incorreto. Tente "123456".');
@@ -176,28 +375,30 @@ const App: React.FC = () => {
   const handleRegister = (userData: any) => {
     // Simulating backend registration
     console.log("Registering user:", userData);
-    setUser({
+    const newUser: User = {
       id: `usr_${Date.now()}`,
       name: userData.name,
       email: userData.email,
       role: userData.role,
+      group: 'external', // Always external upon public registration
+      accountStatus: 'pending_onboarding', // Default status
       isAuthenticated: true,
       phone: userData.phone,
-      // Pass other fields
       bi: userData.bi,
-      // nif: userData.bi, // fallback - REMOVED: User type does not have 'nif' property
       representedEntityName: userData.representedEntityName,
       representedEntityID: userData.representedEntityID,
       address: userData.address ? { street: userData.address, municipality: userData.municipality, province: userData.province } : undefined
-    });
-    alert("Conta criada com sucesso! Bem-vindo ao Arrendaki.");
-    setView('home');
-  };
+    };
+    
+    // Add to centralized users list
+    setUsers(prev => [...prev, newUser]);
+    setUser(newUser);
+    
+    // Create welcome notification
+    createNotification(newUser.id, 'Bem-vindo ao Arrendaki', 'A sua conta foi criada. Aguarde a verificação dos documentos.', 'info');
 
-  const handleUpdateUser = (updates: Partial<User>) => {
-      if (user) {
-          setUser({ ...user, ...updates });
-      }
+    alert("Conta criada com sucesso! Bem-vindo ao Arrendaki.");
+    handleExternalUserRedirect(newUser);
   };
 
   const handleLogout = () => {
@@ -210,40 +411,31 @@ const App: React.FC = () => {
   };
 
   const handlePropertyClick = (id: string) => {
+    // Internal users shouldn't browse properties via public view usually, but allowed for inspection
     setSelectedPropertyId(id);
     setView('detail');
   };
 
   const handleAddPropertySubmit = (newProp: Partial<Property>) => {
     const fullProp = newProp as Property;
-    // New properties are Pending by default
+    // Protocol Action 1: Listing -> Pending
     fullProp.status = 'pending';
     fullProp.isVerified = false;
     fullProp.ownerId = user?.id || 'unknown';
     
     setProperties([fullProp, ...properties]);
-    setView('home');
-    alert("Imóvel submetido para análise! Receberá uma notificação quando for aprovado pela administração.");
-  };
-
-  const handleUpdateProperty = (id: string, updates: Partial<Property>) => {
-      setProperties(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-  };
-
-  const handleStartTransaction = () => {
-    if (!user) {
-        setView('login');
-        return;
-    }
-    setIsTransactionModalOpen(true);
+    
+    // Redirect Owner to Dashboard to see "Pending" status (Prompt 2.2)
+    setView('profile'); 
+    alert("Imóvel submetido para o Dossiê Kiá Verify! O estado 'Pendente' está visível no seu painel.");
   };
 
   // Visit Logic
-  const handleScheduleVisitSubmit = (visitData: Partial<VisitRequest>) => {
+  const handleScheduleVisitSubmit = (visitData: VisitRequest) => {
       const newVisit: VisitRequest = {
-          id: `visit_${Date.now()}`,
-          ...visitData
-      } as VisitRequest;
+          ...visitData,
+          id: `visit_${Date.now()}`
+      };
       setVisits(prev => [newVisit, ...prev]);
   };
 
@@ -251,12 +443,20 @@ const App: React.FC = () => {
       setVisits(prev => prev.map(v => v.id === visitId ? { ...v, status } : v));
   };
 
-  const nextImage = (imagesLength: number) => {
-    setActiveImageIndex((prev) => (prev + 1) % imagesLength);
+  // Chat Logic
+  const handleStartChat = (propertyId: string, ownerId: string) => {
+      // Internal users CANNOT transact (Prompt 2.1)
+      if (user?.group === 'internal') {
+          alert("PERMISSÃO NEGADA: Contas de Staff não podem iniciar negociações.");
+          return;
+      }
+      setCurrentChatId(`chat_${propertyId}_${ownerId}`);
+      setView('chat');
   };
 
-  const prevImage = (imagesLength: number) => {
-    setActiveImageIndex((prev) => (prev - 1 + imagesLength) % imagesLength);
+  const handleOpenChatFromInbox = (chatId: string) => {
+      setCurrentChatId(chatId);
+      setView('chat');
   };
 
   const handleProvinceClick = (provinceName: string) => {
@@ -267,11 +467,55 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
+    // PROTOCOL INVERSE POINT 4: CRITICAL ERROR 500
+    // If system is critical, block Group A (External) users from accessing functionality
+    if (isSystemCritical && user?.group !== 'internal') {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[80vh] text-center p-8 bg-gray-100">
+                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-lg border-t-4 border-red-600">
+                    <ServerCrash className="w-24 h-24 text-red-600 mx-auto mb-6 animate-pulse" />
+                    <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Serviço Indisponível (500)</h2>
+                    <p className="text-gray-600 mb-6 text-lg">
+                        Ocorreu um erro crítico nos nossos servidores. A equipa de TI da Nexus One já foi notificada e está a trabalhar na resolução.
+                    </p>
+                    <div className="bg-red-50 text-red-800 p-4 rounded-lg text-sm font-mono border border-red-200">
+                        Error Code: CRITICAL_BACKEND_FAILURE
+                        <br/>
+                        Timestamp: {new Date().toISOString()}
+                    </div>
+                    <button onClick={() => window.location.reload()} className="mt-6 text-brand-600 font-bold hover:underline">
+                        Tentar Recarregar
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Global Firewall for Internal Users trying to access Transactional Views
+    if (user?.group === 'internal' && (view === 'add-property' || view === 'chat')) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+                <ShieldAlert className="w-20 h-20 text-red-600 mb-4" />
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Acesso Restrito (Segregação de Funções)</h2>
+                <p className="text-gray-600 max-w-md mb-6">
+                    A sua conta <strong>{user.role}</strong> pertence ao Grupo B (Equipa Interna). 
+                    Por motivos de compliance, não lhe é permitido listar imóveis ou negociar no mercado.
+                </p>
+                <button onClick={() => setView('admin')} className="bg-gray-900 text-white px-6 py-3 rounded-lg font-bold">
+                    Voltar ao Painel Admin
+                </button>
+            </div>
+        );
+    }
+
     switch (view) {
       case 'home':
         return (
           <>
-            <Hero onSearch={setSearchFilters} />
+            <Hero onSearch={setSearchFilters} onNavigate={setView} />
+            
+            {/* NEW TRUST SECTION - EXPLAINING THE 2.5% VALUE */}
+            <TrustSection />
             
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
               
@@ -315,7 +559,7 @@ const App: React.FC = () => {
               )}
 
               {/* Explore by Province Section */}
-              {!searchFilters.province && !searchFilters.type && (
+              {!searchFilters.province && !searchFilters.type && !searchFilters.listingType && (
                 <div className="mb-16">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                     <MapPin className="h-6 w-6 text-brand-500 mr-2" />
@@ -350,9 +594,12 @@ const App: React.FC = () => {
 
               <div id="property-list">
                 <div className="flex justify-between items-end mb-6">
-                   <h2 className="text-2xl font-bold text-gray-900">
-                    {searchFilters.province ? `Imóveis em ${searchFilters.province}` : 'Recentes no Arrendaki'}
-                  </h2>
+                   <div>
+                        <h2 className="text-2xl font-bold text-gray-900">
+                            {searchFilters.listingType ? `${searchFilters.listingType} Imóveis` : (searchFilters.province ? `Imóveis em ${searchFilters.province}` : 'Recentes no Arrendaki')}
+                        </h2>
+                        {searchFilters.listingType && <p className="text-sm text-gray-500">Mostrando apenas opções para {searchFilters.listingType.toLowerCase()}.</p>}
+                   </div>
                   {Object.keys(searchFilters).length > 0 && (
                     <button 
                       onClick={() => setSearchFilters({})} 
@@ -374,7 +621,8 @@ const App: React.FC = () => {
                     <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
                       <MapPin className="h-full w-full" />
                     </div>
-                    <p className="text-gray-900 font-medium text-lg">Nenhum imóvel encontrado nesta zona.</p>
+                    <p className="text-gray-900 font-medium text-lg">Nenhum imóvel encontrado com estes critérios.</p>
+                    <button onClick={() => setSearchFilters({})} className="mt-2 text-brand-600 font-bold hover:underline">Ver todos</button>
                   </div>
                 )}
               </div>
@@ -382,279 +630,34 @@ const App: React.FC = () => {
           </>
         );
 
+      case 'about':
+        return <AboutUs />;
+
       case 'blog':
         return (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fadeIn">
-              <div className="text-center mb-12">
-                  <h1 className="text-4xl font-extrabold text-gray-900 mb-4">Blog Arrendaki</h1>
-                  <p className="text-lg text-gray-600 max-w-2xl mx-auto">Notícias, dicas e tendências do mercado imobiliário em Angola.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {MOCK_BLOG_POSTS.map(post => (
-                      <div key={post.id} className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all border border-gray-100 flex flex-col h-full group">
-                          <div className="h-48 overflow-hidden bg-gray-200 relative">
-                              {post.image ? (
-                                  <img src={post.image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                              ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-brand-50 text-brand-300">
-                                      <BookOpen className="w-12 h-12" />
-                                  </div>
-                              )}
-                              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-gray-700">
-                                  Notícias
-                              </div>
-                          </div>
-                          <div className="p-6 flex flex-col flex-grow">
-                              <div className="flex items-center text-xs text-gray-500 mb-3 space-x-3">
-                                  <span className="flex items-center"><Clock className="w-3 h-3 mr-1" /> {post.date}</span>
-                                  <span className="flex items-center"><UserIcon className="w-3 h-3 mr-1" /> {post.author}</span>
-                              </div>
-                              <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-brand-600 transition-colors">{post.title}</h3>
-                              <p className="text-gray-600 text-sm leading-relaxed mb-4 flex-grow">{post.excerpt}</p>
-                              <button className="text-brand-600 font-bold text-sm flex items-center hover:underline mt-auto">
-                                  Ler artigo completo <ChevronRight className="w-4 h-4 ml-1" />
-                              </button>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-          </div>
+          <BlogList 
+            posts={blogPosts} 
+            onReadMore={(id) => alert(`Navegar para o artigo ${id} (Funcionalidade completa em breve)`)} 
+          />
         );
 
       case 'detail':
         const property = properties.find(p => p.id === selectedPropertyId);
         if (!property) return <div>Property not found</div>;
         
-        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.location.address}, ${property.location.municipality}, ${property.location.province}, Angola`)}`;
-
         return (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
-            <ImageLightbox 
-                isOpen={isLightboxOpen}
-                onClose={() => setIsLightboxOpen(false)}
-                images={property.images}
-                activeIndex={activeImageIndex}
-                onIndexChange={setActiveImageIndex}
+            <PropertyDetail 
+                property={property}
+                user={user}
+                onBack={() => setView('home')}
+                onLoginNeeded={() => setView('login')}
+                onAddVisit={handleScheduleVisitSubmit}
+                onStartChat={handleStartChat}
             />
-
-            {user && (
-                <TransactionModal 
-                    isOpen={isTransactionModalOpen}
-                    onClose={() => setIsTransactionModalOpen(false)}
-                    property={property}
-                    user={user}
-                />
-            )}
-
-            {user && (
-                <SchedulingModal 
-                    isOpen={isSchedulingModalOpen}
-                    onClose={() => setIsSchedulingModalOpen(false)}
-                    property={property}
-                    user={user}
-                    onSubmit={handleScheduleVisitSubmit}
-                />
-            )}
-
-            <button onClick={() => setView('home')} className="mb-4 flex items-center text-gray-600 hover:text-brand-500">
-              <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-            </button>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Images & Main Info */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Main Image Carousel */}
-                    <div 
-                        className="relative h-96 bg-gray-900 rounded-xl overflow-hidden shadow-lg group select-none flex items-center justify-center cursor-zoom-in"
-                        onClick={() => setIsLightboxOpen(true)}
-                    >
-                      
-                      {/* Loading Skeleton */}
-                      {isMainImageLoading && (
-                        <div className="absolute inset-0 bg-gray-800 animate-pulse flex items-center justify-center z-10">
-                           <ImageIcon className="h-12 w-12 text-gray-600 opacity-50" />
-                        </div>
-                      )}
-
-                      <img 
-                        src={property.images[activeImageIndex]} 
-                        alt={property.title} 
-                        loading="lazy"
-                        decoding="async"
-                        onLoad={() => setIsMainImageLoading(false)}
-                        className={`w-full h-full object-contain transition-opacity duration-300 ${isMainImageLoading ? 'opacity-0' : 'opacity-100'}`}
-                      />
-
-                       {/* Hover Overlay Hint */}
-                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none">
-                            <ZoomIn className="text-white opacity-0 group-hover:opacity-70 w-12 h-12 drop-shadow-lg transform scale-50 group-hover:scale-100 transition-all duration-300" />
-                       </div>
-                      
-                      {/* Navigation Controls */}
-                      {property.images.length > 1 && (
-                        <>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); prevImage(property.images.length); }}
-                            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm z-20"
-                          >
-                            <ChevronLeft className="h-6 w-6" />
-                          </button>
-                          
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); nextImage(property.images.length); }}
-                            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm z-20"
-                          >
-                            <ChevronRight className="h-6 w-6" />
-                          </button>
-
-                          {/* Dots */}
-                          <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-20">
-                            {property.images.map((_, idx) => (
-                              <button
-                                key={idx}
-                                onClick={(e) => { e.stopPropagation(); setActiveImageIndex(idx); }}
-                                className={`w-2 h-2 rounded-full transition-all shadow-sm ${
-                                  idx === activeImageIndex ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/80'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Image Gallery Thumbnails */}
-                    {property.images.length > 1 && (
-                      <div className="grid grid-cols-4 sm:grid-cols-5 gap-4">
-                        {property.images.map((img, idx) => (
-                          <div 
-                            key={idx} 
-                            onClick={() => setActiveImageIndex(idx)}
-                            className={`relative h-20 bg-gray-200 rounded-lg overflow-hidden cursor-pointer hover:opacity-100 transition-all ${
-                              idx === activeImageIndex 
-                                ? 'ring-2 ring-brand-500 ring-offset-2 opacity-100' 
-                                : 'opacity-60 grayscale hover:grayscale-0'
-                            }`}
-                          >
-                             <img 
-                                src={img} 
-                                alt={`${property.title} - ${idx + 1}`} 
-                                loading="lazy"
-                                decoding="async"
-                                className="w-full h-full object-cover"
-                              />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900">{property.title}</h1>
-                                <a 
-                                    href={googleMapsUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-gray-500 flex items-center mt-1 hover:text-brand-500 hover:underline w-fit group"
-                                    title="Ver no Google Maps"
-                                >
-                                    <MapPin className="h-4 w-4 mr-1 group-hover:text-brand-500" />
-                                    {property.location.address}, {property.location.municipality}, {property.location.province}
-                                    <ExternalLink className="h-3 w-3 ml-1 opacity-50 group-hover:opacity-100" />
-                                </a>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-3xl font-bold text-brand-600">
-                                    {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: property.currency }).format(property.price)}
-                                </p>
-                                <p className="text-sm text-gray-500">{property.listingType === 'Arrendar' ? '/mês' : ''}</p>
-                            </div>
-                        </div>
-
-                        <div className="mt-8">
-                            <h3 className="font-semibold text-lg mb-3">Descrição</h3>
-                            <p className="text-gray-600 leading-relaxed">{property.description}</p>
-                        </div>
-                        
-                        {/* Video Tour Section */}
-                        {property.videoUrl && (
-                            <div className="mt-8">
-                                <h3 className="font-semibold text-lg mb-3 flex items-center">
-                                    <Film className="w-5 h-5 mr-2 text-gray-700" />
-                                    Vídeo Tour
-                                </h3>
-                                <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-sm relative group">
-                                    <video controls className="w-full h-full" src={property.videoUrl}>
-                                        Seu navegador não suporta a tag de vídeo.
-                                    </video>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="mt-8">
-                            <h3 className="font-semibold text-lg mb-3">Comodidades</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {property.features.map(f => (
-                                    <div key={f} className="flex items-center text-gray-600 bg-gray-50 p-2 rounded">
-                                        <CheckCircle className="h-4 w-4 text-brand-500 mr-2" />
-                                        <span className="text-sm">{f}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Sidebar / Actions */}
-                <div className="space-y-6">
-                    {/* Action Box */}
-                    <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200 sticky top-24">
-                         {property.isGuaranteed && (
-                            <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                                <h4 className="font-bold text-green-800 flex items-center mb-2">
-                                    <CheckCircle className="h-5 w-5 mr-2" /> Transação Garantida
-                                </h4>
-                                <p className="text-xs text-green-700">
-                                    Este imóvel beneficia da proteção Arrendaki. O seu dinheiro fica seguro até assinar o contrato.
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="space-y-3">
-                            <button 
-                                onClick={handleStartTransaction}
-                                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-4 rounded-lg transition-all shadow-md transform hover:-translate-y-0.5 flex items-center justify-center text-lg"
-                            >
-                                {property.listingType === 'Arrendar' ? (
-                                    <><FileText className="w-5 h-5 mr-2"/> Iniciar Arrendamento</>
-                                ) : (
-                                    <><ShoppingBag className="w-5 h-5 mr-2"/> Iniciar Compra</>
-                                )}
-                            </button>
-                            
-                            <button 
-                                onClick={() => user ? setView('chat') : setView('login')}
-                                className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                Contactar Proprietário
-                            </button>
-
-                            <button 
-                                onClick={() => user ? setIsSchedulingModalOpen(true) : setView('login')}
-                                className="w-full bg-white border border-brand-500 text-brand-600 font-bold py-3 rounded-lg hover:bg-brand-50 transition-colors"
-                            >
-                                Agendar Visita
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-          </div>
         );
 
       case 'add-property':
+        if (!user || user.group === 'internal') { setView('login'); return null; }
         return (
           <div className="py-12 px-4">
              <PropertyForm onSubmit={handleAddPropertySubmit} onCancel={() => setView('home')} />
@@ -670,46 +673,73 @@ const App: React.FC = () => {
 
       case 'profile':
         if (!user) { setView('login'); return null; }
+        const userContracts = contracts.filter(c => c.ownerId === user.id || c.tenantId === user.id);
+        const userDocuments = documents.filter(d => {
+            return userContracts.some(c => c.id === d.relatedEntityId);
+            // In a real app, we'd also check against user's transaction IDs
+        });
         return (
             <UserProfile 
                 user={user} 
                 userProperties={properties.filter(p => p.ownerId === user.id)}
                 visits={visits}
-                onUpdateUser={handleUpdateUser}
+                notifications={notifications.filter(n => n.userId === user.id)}
+                contracts={userContracts}
+                documents={userDocuments}
+                onUpdateUser={(updates) => handleUpdateUser(user.id, updates)}
                 onUpdateVisitStatus={handleUpdateVisitStatus}
+                onUpdateContractStatus={handleUpdateContractStatus}
+                onPayFee={handleFeePayment}
                 onBack={() => setView('home')}
+                onOpenChat={handleOpenChatFromInbox}
             />
         );
       
       case 'admin':
-         if (!user || !['admin', 'commercial_manager', 'security_manager', 'it_tech', 'collaborator'].includes(user.role)) { setView('login'); return null; }
+         if (!user || user.group !== 'internal') { setView('login'); return null; }
          return (
              <AdminPanel 
                 properties={properties} 
                 onUpdateProperty={handleUpdateProperty}
+                users={users}
+                onUpdateUser={handleUpdateUser}
+                blogPosts={blogPosts}
+                onUpdateBlogPost={handleUpdateBlogPost}
+                onAddBlogPost={handleAddBlogPost}
                 currentUserRole={user.role}
+                onToggleSystemStatus={() => setIsSystemCritical(!isSystemCritical)}
+                isSystemCritical={isSystemCritical}
+                auditLogs={auditLogs}
+                addAuditLog={addAuditLog}
              />
          );
 
       case 'chat':
+        if (!user || user.group === 'internal') { setView('login'); return null; }
         const currentProp = properties.find(p => p.id === selectedPropertyId) || properties[0];
         return (
           <div className="max-w-4xl mx-auto py-12 px-4">
-              <h2 className="text-2xl font-bold mb-6">Mensagens Seguras</h2>
+              <div className="flex items-center mb-6">
+                  <button onClick={() => setView('profile')} className="mr-3 p-2 bg-gray-100 rounded-full hover:bg-gray-200">
+                      <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-2xl font-bold">Mensagens Seguras</h2>
+              </div>
               <ChatWindow 
-                  chatId="123" 
+                  chatId={currentChatId}
                   currentUser="me"
                   onScheduleVisit={() => {
                       if(currentProp) {
                           // Ensure scheduling works even if navigated from general chat if we have context
                           setSelectedPropertyId(currentProp.id);
-                          setIsSchedulingModalOpen(true);
+                          setView('detail'); // Navigate back to detail so PropertyDetail handles scheduling
+                          // In a real app we'd pass state to open the modal immediately
                       }
                   }}
                   onSendProposal={() => {
                       if(currentProp) {
                           setSelectedPropertyId(currentProp.id);
-                          handleStartTransaction();
+                          setView('detail'); // Navigate back to detail
                       }
                   }}
               />
@@ -842,6 +872,10 @@ const App: React.FC = () => {
                                  </div>
                              </div>
                              <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Acesso Corporativo</h2>
+                             <div className="mb-6 bg-red-50 p-2 rounded text-xs text-red-700 text-center border border-red-200">
+                                 <ShieldAlert className="w-3 h-3 inline mr-1" />
+                                 Área restrita a colaboradores autorizados (Grupo B).
+                             </div>
                              
                              {staffLoginStep === 'roles' && (
                                 <>
@@ -858,6 +892,13 @@ const App: React.FC = () => {
                                             className="w-full p-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium text-gray-700"
                                         >
                                             Gestor / Manager
+                                        </button>
+                                        <button 
+                                            onClick={() => initStaffLogin('legal_compliance')}
+                                            className="w-full p-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium text-gray-700 flex items-center justify-center"
+                                        >
+                                            <Scale className="w-4 h-4 mr-2" />
+                                            Jurídico & Compliance
                                         </button>
                                         <button 
                                             onClick={() => initStaffLogin('collaborator')}
@@ -968,3 +1009,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+```

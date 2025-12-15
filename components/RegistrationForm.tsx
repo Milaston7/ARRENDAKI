@@ -90,9 +90,27 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onRegister, onCance
   };
 
   const handleFileUpload = (field: string, file: File) => {
+    // Validation Constants
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+
+    // Validate Type
+    if (!ALLOWED_TYPES.includes(file.type)) {
+        setErrors(prev => ({ ...prev, [field]: "Formato inválido. Apenas PDF, JPG ou PNG." }));
+        return;
+    }
+
+    // Validate Size
+    if (file.size > MAX_SIZE) {
+        setErrors(prev => ({ ...prev, [field]: "O ficheiro excede o tamanho máximo de 10MB." }));
+        return;
+    }
+
     // Mock upload - in real app would upload to server
     const objectUrl = URL.createObjectURL(file);
     setFormData(prev => ({ ...prev, [field]: objectUrl }));
+    
+    // Clear error if exists
     if (errors[field]) {
         const newErrors = { ...errors };
         delete newErrors[field];
@@ -113,7 +131,8 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onRegister, onCance
             if (!formData.dob) newErrors.dob = "Data de nascimento obrigatória.";
             if (!formData.bi.trim()) newErrors.bi = "Nº do BI obrigatório.";
         } else {
-            if (!formData.companyName.trim()) newErrors.companyName = "Razão Social obrigatória.";
+            // Validation Logic: Company Name Required
+            if (!formData.companyName.trim()) newErrors.companyName = "Razão Social (Nome da Empresa) é obrigatória.";
             if (!formData.bi.trim()) newErrors.bi = "NIF da Empresa obrigatório.";
             if (!formData.repName.trim()) newErrors.repName = "Nome do Representante obrigatório.";
         }
@@ -476,7 +495,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onRegister, onCance
                   >
                       <Upload className="w-6 h-6 text-gray-400 mb-1" />
                       <span className="text-xs text-brand-600 font-bold">Carregar Documento</span>
-                      <span className="text-[10px] text-gray-400">PDF ou JPG (Max 5MB)</span>
+                      <span className="text-[10px] text-gray-400">PDF ou JPG (Max 10MB)</span>
                   </label>
               ) : (
                   <div className="flex items-center justify-between bg-green-50 border border-green-200 p-3 rounded-lg">
@@ -557,49 +576,100 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onRegister, onCance
       </div>
   );
 
-  const renderSecurity = () => (
-      <div className="space-y-6 animate-fadeIn">
-          <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Criar Senha <span className="text-red-500">*</span></label>
-              <div className="relative">
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    name="password" 
-                    value={formData.password} 
-                    onChange={handleChange} 
-                    className={`w-full p-3 border rounded-lg pr-10 ${errors.password ? 'border-red-500' : 'border-gray-300'}`} 
-                    placeholder="Mínimo 8 caracteres"
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400">
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
+  const renderSecurity = () => {
+      const calculatePasswordStrength = (pass: string) => {
+          if (!pass) return { label: '', color: '', width: '0%' };
+          if (pass.length < 8) return { label: 'Fraca (Mín. 8 caracteres)', color: 'bg-red-500', width: '33%' };
+          
+          const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(pass);
+          const hasNumber = /[0-9]/.test(pass);
+          const hasUpper = /[A-Z]/.test(pass);
+          
+          const complexity = (hasSpecial ? 1 : 0) + (hasNumber ? 1 : 0) + (hasUpper ? 1 : 0);
+
+          if (complexity < 2) return { label: 'Média', color: 'bg-yellow-500', width: '66%' };
+          return { label: 'Forte', color: 'bg-green-500', width: '100%' };
+      };
+
+      const strength = calculatePasswordStrength(formData.password);
+      const confirmStrength = calculatePasswordStrength(formData.confirmPassword);
+
+      return (
+          <div className="space-y-6 animate-fadeIn">
+              <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Criar Senha <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        name="password" 
+                        value={formData.password} 
+                        onChange={handleChange} 
+                        className={`w-full p-3 border rounded-lg pr-10 ${errors.password ? 'border-red-500' : 'border-gray-300'}`} 
+                        placeholder="Mínimo 8 caracteres"
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400">
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                  </div>
+                  
+                  {/* Password Strength Indicator */}
+                  {formData.password && (
+                      <div className="mt-2 transition-all duration-300">
+                          <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                  className={`h-full ${strength.color} transition-all duration-500`} 
+                                  style={{ width: strength.width }}
+                              ></div>
+                          </div>
+                          <p className={`text-xs mt-1 font-bold ${strength.color.replace('bg-', 'text-')}`}>
+                              {strength.label}
+                          </p>
+                      </div>
+                  )}
+
+                  {!formData.password && <p className="text-xs text-gray-500 mt-1">Deve incluir letras, números e símbolos.</p>}
+                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
               </div>
-              <p className="text-xs text-gray-500 mt-1">Deve incluir letras, números e símbolos.</p>
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-          </div>
 
-          <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar Senha <span className="text-red-500">*</span></label>
-              <input 
-                type="password" 
-                name="confirmPassword" 
-                value={formData.confirmPassword} 
-                onChange={handleChange} 
-                className={`w-full p-3 border rounded-lg ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`} 
-              />
-              {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
-          </div>
+              <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar Senha <span className="text-red-500">*</span></label>
+                  <input 
+                    type="password" 
+                    name="confirmPassword" 
+                    value={formData.confirmPassword} 
+                    onChange={handleChange} 
+                    className={`w-full p-3 border rounded-lg ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`} 
+                  />
+                  
+                  {/* Confirm Password Strength Indicator */}
+                  {formData.confirmPassword && (
+                      <div className="mt-2 transition-all duration-300">
+                          <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                  className={`h-full ${confirmStrength.color} transition-all duration-500`} 
+                                  style={{ width: confirmStrength.width }}
+                              ></div>
+                          </div>
+                          <p className={`text-xs mt-1 font-bold ${confirmStrength.color.replace('bg-', 'text-')}`}>
+                              {confirmStrength.label}
+                          </p>
+                      </div>
+                  )}
 
-          <div className="bg-gray-50 p-4 rounded-lg text-xs text-gray-600">
-              <p className="mb-2"><strong>Medidas de Segurança Adicionais:</strong></p>
-              <ul className="list-disc pl-4 space-y-1">
-                  <li>Verificação de contacto via SMS (Código enviado após registo).</li>
-                  <li>Confirmação de email (Link de ativação).</li>
-                  <li>Análise humana dos documentos carregados.</li>
-              </ul>
+                  {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg text-xs text-gray-600">
+                  <p className="mb-2"><strong>Medidas de Segurança Adicionais:</strong></p>
+                  <ul className="list-disc pl-4 space-y-1">
+                      <li>Verificação de contacto via SMS (Código enviado após registo).</li>
+                      <li>Confirmação de email (Link de ativação).</li>
+                      <li>Análise humana dos documentos carregados.</li>
+                  </ul>
+              </div>
           </div>
-      </div>
-  );
+      );
+  };
 
   const renderSuccess = () => (
       <div className="text-center py-8 animate-fadeIn">

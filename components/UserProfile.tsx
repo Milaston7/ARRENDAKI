@@ -1,766 +1,594 @@
 
-import React, { useState, useRef } from 'react';
-import { User, Property, VisitRequest, Contract } from '../types';
-import { MOCK_CONTRACTS } from '../services/mockData';
-import { User as UserIcon, BarChart2, Upload, MapPin, Save, Home, CheckCircle, Clock, FileText, Bell, Calendar, ChevronRight, Shield, Server, Lock, PenTool, CalendarDays, X, Check, FileSignature, Download, Briefcase, Building, ArrowLeft, RefreshCw, XCircle } from 'lucide-react';
-import { PROVINCES } from '../constants';
+import React, { useState } from 'react';
+import { User, Property, VisitRequest, Notification, Contract, DocumentRecord } from '../types';
+import { 
+  User as UserIcon, MapPin, Phone, Mail, ShieldCheck, 
+  Briefcase, Globe, Edit2, Save, X, Building, Key, 
+  Calendar, CheckCircle, XCircle, MessageSquare, Plus,
+  FileText, LogOut, ChevronLeft, LayoutDashboard, Settings, Bell, Info,
+  Eye, Download, PenTool, AlertTriangle, FileSignature, HelpCircle,
+  Smartphone, Hash, Loader2
+} from 'lucide-react';
+import PropertyCard from './PropertyCard';
+import DocumentTemplate, { DocumentType } from './DocumentTemplate';
+
+const PublicationFeeModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, onClose: () => void, onConfirm: () => void }) => {
+    if (!isOpen) return null;
+
+    const [paymentMethod, setPaymentMethod] = useState<'express' | 'reference'>('express');
+    const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success'>('idle');
+
+    const handleConfirm = () => {
+        setPaymentStatus('processing');
+        setTimeout(() => {
+            setPaymentStatus('success');
+            setTimeout(() => {
+                onConfirm();
+                // Reset state for next use
+                setPaymentStatus('idle');
+            }, 1500);
+        }, 2000);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
+                
+                {/* Payment Status Overlay */}
+                {paymentStatus !== 'idle' && (
+                    <div className="absolute inset-0 bg-white z-20 flex flex-col items-center justify-center p-8 animate-fadeIn">
+                        {paymentStatus === 'processing' && (
+                            <>
+                                <Loader2 className="w-16 h-16 text-brand-600 animate-spin mb-6" />
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">A processar pagamento...</h3>
+                                <p className="text-center text-gray-500 text-sm">Aguarde a confirmação da rede. Não feche esta janela.</p>
+                            </>
+                        )}
+                        {paymentStatus === 'success' && (
+                            <>
+                                <CheckCircle className="w-20 h-20 text-green-500 mb-6" />
+                                <h3 className="text-2xl font-bold text-gray-900 mb-2">Pagamento Confirmado!</h3>
+                                <p className="text-center text-gray-500 text-sm">O seu anúncio será publicado em instantes.</p>
+                            </>
+                        )}
+                    </div>
+                )}
+                
+                <div className="p-6">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">Taxa de Publicação</h3>
+                            <p className="text-sm text-gray-500">Ativação do selo Kiá Verified e listagem.</p>
+                        </div>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+
+                    <div className="text-center bg-gray-50 rounded-lg p-4 my-6 border border-gray-200">
+                        <p className="text-sm text-gray-500">Valor a pagar</p>
+                        <p className="text-4xl font-extrabold text-brand-600">3.000 AOA</p>
+                    </div>
+
+                    <div className="flex space-x-2 border-b border-gray-200 mb-4">
+                        <button onClick={() => setPaymentMethod('express')} className={`flex-1 text-center py-2 text-sm font-bold ${paymentMethod === 'express' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-500'}`}>
+                            MCX Express
+                        </button>
+                        <button onClick={() => setPaymentMethod('reference')} className={`flex-1 text-center py-2 text-sm font-bold ${paymentMethod === 'reference' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-500'}`}>
+                            Referência
+                        </button>
+                    </div>
+
+                    <div className="min-h-[120px] flex items-center justify-center">
+                        {paymentMethod === 'express' && (
+                            <div className="text-center animate-fadeIn space-y-2">
+                                <Smartphone className="w-8 h-8 mx-auto text-brand-500 mb-2"/>
+                                <p className="font-medium">Pagamento via Telemóvel</p>
+                                <p className="text-xs text-gray-500">Receberá uma notificação no seu telemóvel associado para confirmar a transação.</p>
+                            </div>
+                        )}
+                        {paymentMethod === 'reference' && (
+                             <div className="text-center animate-fadeIn space-y-2">
+                                <Hash className="w-8 h-8 mx-auto text-brand-500 mb-2"/>
+                                <p className="font-medium">Pagamento por Referência</p>
+                                <div className="bg-gray-100 p-2 rounded text-xs inline-block">
+                                    <p>Entidade: <span className="font-bold">00123</span></p>
+                                    <p>Referência: <span className="font-bold">921 442 552</span></p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 border-t border-gray-200">
+                    <button 
+                        onClick={handleConfirm}
+                        className="w-full bg-brand-600 text-white font-bold py-3 rounded-lg hover:bg-brand-700 transition-colors shadow-md"
+                    >
+                        Confirmar Pagamento
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 interface UserProfileProps {
   user: User;
-  userProperties: Property[]; // Properties owned by this user
+  userProperties: Property[];
   visits: VisitRequest[];
-  onUpdateUser: (updatedUser: Partial<User>) => void;
+  notifications: Notification[];
+  contracts: Contract[];
+  documents: DocumentRecord[];
+  onUpdateUser: (updates: Partial<User>) => void;
   onUpdateVisitStatus: (visitId: string, status: 'confirmed' | 'rejected') => void;
-  onBack?: () => void;
+  onUpdateContractStatus: (contractId: string, status: Contract['status'], reason?: string) => void;
+  onBack: () => void;
+  onOpenChat: (chatId: string) => void;
+  onPayFee: (propertyId: string) => void;
 }
 
-const UserProfile: React.FC<UserProfileProps> = ({ user, userProperties, visits, onUpdateUser, onUpdateVisitStatus, onBack }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'contracts' | 'dashboard' | 'notifications' | 'visits'>('profile');
+const UserProfile: React.FC<UserProfileProps> = ({ 
+  user, 
+  userProperties, 
+  visits, 
+  notifications,
+  contracts,
+  documents,
+  onUpdateUser, 
+  onUpdateVisitStatus,
+  onUpdateContractStatus,
+  onBack,
+  onOpenChat,
+  onPayFee
+}) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'visits' | 'notifications' | 'contracts' | 'documents'>('overview');
+  const [isEditing, setIsEditing] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState<{ type: DocumentType, data: any } | null>(null);
   
-  // Refs for file uploads
-  const profileImageRef = useRef<HTMLInputElement>(null);
+  const [paymentModalState, setPaymentModalState] = useState<{ isOpen: boolean; propertyId: string | null }>({ isOpen: false, propertyId: null });
 
-  // Local state for forms
   const [formData, setFormData] = useState({
     name: user.name,
-    email: user.email,
     phone: user.phone || '',
-    dob: user.dob || '',
-    nationality: user.nationality || 'Angolana',
-    bi: user.bi || '',
-    
-    // Corporate
-    companyName: user.companyName || '',
-    repName: user.repName || '',
-    repType: user.repType || 'Procurador',
-    
-    // Broker
-    licenseNumber: user.licenseNumber || '',
-
-    // Third-Party Rep
-    representedEntityName: user.representedEntityName || '',
-    representedEntityID: user.representedEntityID || '',
-
-    // Address
-    province: user.address?.province || '',
+    email: user.email,
+    address: user.address ? user.address.street : '',
+    province: user.address?.province || 'Luanda',
     municipality: user.address?.municipality || '',
-    street: user.address?.street || '',
+    companyWebsite: user.companyWebsite || '',
+    licenseNumber: user.licenseNumber || '',
+    companyName: user.companyName || '',
   });
 
-  // State for Contracts
-  const [myContracts, setMyContracts] = useState<Contract[]>(
-      MOCK_CONTRACTS.filter(c => c.tenantId === user.id || c.ownerId === user.id)
-  );
-  const [signingContractId, setSigningContractId] = useState<string | null>(null);
-  const [biConfirmed, setBiConfirmed] = useState(false);
+  const [refuseModal, setRefuseModal] = useState<{ isOpen: boolean, contractId: string | null }>({ isOpen: false, contractId: null });
+  const [refuseReason, setRefuseReason] = useState('');
 
-  // Added 'collaborator' to internal staff list
-  const isInternalStaff = ['admin', 'commercial_manager', 'security_manager', 'it_tech', 'collaborator'].includes(user.role);
-  
-  // LOGIC UPDATE: Treat Legal Reps as "Owner Entities" who manage properties
-  const isOwnerEntity = user.role === 'owner' || user.role === 'broker' || user.role === 'legal_rep';
-  
-  const isCorporate = !!user.companyName; 
+  const isOwner = user.role === 'owner' || user.role === 'broker' || user.role === 'legal_rep';
   const isLegalRep = user.role === 'legal_rep';
+  const isBroker = user.role === 'broker';
 
-  const handleSaveProfile = () => {
+  const handleSave = () => {
     onUpdateUser({
       name: formData.name,
       phone: formData.phone,
-      dob: formData.dob,
-      nationality: formData.nationality,
-      bi: formData.bi,
-      companyName: formData.companyName,
-      repName: formData.repName,
-      repType: formData.repType,
-      licenseNumber: formData.licenseNumber,
-      representedEntityName: formData.representedEntityName,
-      representedEntityID: formData.representedEntityID,
       address: {
         province: formData.province,
         municipality: formData.municipality,
-        street: formData.street
-      }
+        street: formData.address
+      },
+      companyWebsite: formData.companyWebsite,
+      licenseNumber: formData.licenseNumber,
+      companyName: formData.companyName
     });
-    alert('Alterações guardadas com sucesso!');
+    setIsEditing(false);
+  };
+  
+  const handleViewDocument = (doc: DocumentRecord) => {
+    const relatedContract = contracts.find(c => c.id === doc.relatedEntityId);
+    
+    setViewingDocument({
+        type: doc.type,
+        data: {
+            id: doc.id,
+            date: doc.date,
+            user: user,
+            property: relatedContract ? userProperties.find(p => p.id === relatedContract.propertyId) : undefined,
+            transactionDetails: {
+                amount: doc.amount,
+                currency: 'AOA',
+                description: doc.title
+            }
+        }
+    });
   };
 
-  // File Upload Handlers (Mock)
-  const handleProfileImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        const objectUrl = URL.createObjectURL(file);
-        onUpdateUser({ profileImage: objectUrl });
-        alert("Foto de perfil atualizada!");
+  const handleViewContract = (contract: Contract) => {
+     setViewingDocument({
+        type: 'contract',
+        data: {
+            id: contract.id,
+            date: contract.signedAt || contract.startDate,
+            user: user,
+            property: userProperties.find(p => p.id === contract.propertyId),
+            transactionDetails: {
+                amount: contract.value,
+                currency: contract.currency,
+                description: `Contrato de ${contract.type === 'lease' ? 'Arrendamento' : 'Venda'}`
+            }
+        }
+     });
+  };
+
+  const handleRefuseContract = () => {
+    if (!refuseModal.contractId || !refuseReason.trim()) {
+        alert("A justificativa é obrigatória para recusar o contrato.");
+        return;
     }
+    onUpdateContractStatus(refuseModal.contractId, 'terminated', refuseReason);
+    setRefuseModal({ isOpen: false, contractId: null });
+    setRefuseReason('');
   };
 
-  const handleSignContract = (contractId: string) => {
-      setBiConfirmed(false);
-      setSigningContractId(contractId);
-  };
-
-  const handleRenewContract = (contractId: string) => {
-      const confirm = window.confirm("Deseja iniciar o processo de renovação por mais 1 ano?");
-      if(confirm) {
-          setMyContracts(prev => prev.map(c => 
-              c.id === contractId ? { ...c, status: 'active', endDate: '2025-12-31' } : c // Mock extension
-          ));
-          alert("Pedido de renovação enviado ao inquilino/proprietário.");
+  const handleConfirmFeePayment = () => {
+      if (paymentModalState.propertyId) {
+          onPayFee(paymentModalState.propertyId);
       }
+      setPaymentModalState({ isOpen: false, propertyId: null });
   };
 
-  const handleTerminateContract = (contractId: string) => {
-      const confirm = window.confirm("Tem a certeza? Esta ação iniciará a rescisão do contrato.");
-      if(confirm) {
-          setMyContracts(prev => prev.map(c => 
-              c.id === contractId ? { ...c, status: 'terminated' } : c
-          ));
-          alert("Contrato marcado como não renovado/rescindido.");
-      }
-  };
 
-  const handleDownloadContract = (contractId: string) => {
-      alert(`A iniciar download do contrato ${contractId}.pdf ...`);
-  };
+  const renderOverview = () => (
+    <div className="space-y-6 animate-fadeIn">
+       {/* Identity Card */}
+       <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex justify-between items-start mb-6">
+             <h3 className="text-lg font-bold text-gray-900">Informação Pessoal</h3>
+             {!isEditing ? (
+                 <button onClick={() => setIsEditing(true)} className="text-brand-600 hover:text-brand-700 text-sm font-bold flex items-center">
+                    <Edit2 className="w-4 h-4 mr-1" /> Editar
+                 </button>
+             ) : (
+                 <div className="flex space-x-2">
+                    <button onClick={() => setIsEditing(false)} className="text-gray-500 hover:text-gray-700 text-sm font-bold flex items-center">
+                        <X className="w-4 h-4 mr-1" /> Cancelar
+                    </button>
+                    <button onClick={handleSave} className="text-green-600 hover:text-green-700 text-sm font-bold flex items-center">
+                        <Save className="w-4 h-4 mr-1" /> Guardar
+                    </button>
+                 </div>
+             )}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
+                {isEditing ? (
+                    <input 
+                        type="text" 
+                        value={formData.name} 
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        className="w-full p-2 border border-gray-300 rounded"
+                    />
+                ) : (
+                    <p className="font-medium text-gray-900">{user.name}</p>
+                )}
+             </div>
+             
+             <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
+                <div className="flex items-center">
+                    <Mail className="w-4 h-4 text-gray-400 mr-2" />
+                    <p className="font-medium text-gray-900">{user.email}</p>
+                </div>
+             </div>
 
-  const confirmSignature = () => {
-      setMyContracts(prev => prev.map(c => 
-          c.id === signingContractId 
-          ? { ...c, status: 'active', signedAt: new Date().toISOString().split('T')[0] } 
-          : c
-      ));
-      setSigningContractId(null);
-      alert("Contrato assinado digitalmente com sucesso!");
-  };
+             <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefone</label>
+                 <div className="flex items-center">
+                    <Phone className="w-4 h-4 text-gray-400 mr-2" />
+                    {isEditing ? (
+                        <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-2 border border-gray-300 rounded" />
+                    ) : (
+                        <p className="font-medium text-gray-900">{user.phone}</p>
+                    )}
+                 </div>
+             </div>
 
-  const getRoleLabel = () => {
-      switch(user.role) {
-          case 'admin': return 'Administrador';
-          case 'commercial_manager': return 'Gerente Comercial';
-          case 'security_manager': return 'Gestor de Segurança';
-          case 'it_tech': return 'Técnico de TI';
-          case 'collaborator': return 'Colaborador';
-          case 'owner': return 'Proprietário';
-          case 'broker': return 'Corretor';
-          case 'legal_rep': return 'Representante de Terceiros';
-          default: return 'Inquilino / Comprador';
-      }
-  };
+             <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Endereço</label>
+                 <div className="flex items-center">
+                    <MapPin className="w-4 h-4 text-gray-400 mr-2" />
+                    {isEditing ? (
+                        <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full p-2 border border-gray-300 rounded" />
+                    ) : (
+                        <p className="font-medium text-gray-900">{user.address?.street}</p>
+                    )}
+                 </div>
+             </div>
+          </div>
+       </div>
 
-  const getRoleIcon = () => {
-      switch(user.role) {
-          case 'admin': return <Shield className="w-10 h-10" />;
-          case 'commercial_manager': return <BarChart2 className="w-10 h-10" />;
-          case 'security_manager': return <Lock className="w-10 h-10" />;
-          case 'it_tech': return <Server className="w-10 h-10" />;
-          case 'collaborator': return <PenTool className="w-10 h-10" />;
-          case 'legal_rep': return <Shield className="w-10 h-10" />;
-          default: return <UserIcon className="w-10 h-10" />;
-      }
-  };
-
-  const renderVisitsTab = () => {
-      const myVisits = visits.filter(v => v.tenantId === user.id);
-      const incomingVisits = visits.filter(v => v.ownerId === user.id);
-
-      return (
-          <div className="space-y-6 animate-fadeIn">
-              <div className="flex justify-between items-center border-b pb-4">
-                  <h2 className="text-xl font-bold text-gray-800">
-                      {isOwnerEntity ? 'Solicitações de Visita (Recebidas)' : 'Minhas Visitas (Enviadas)'}
-                  </h2>
-                  <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
-                      {isOwnerEntity ? incomingVisits.length : myVisits.length} agendamentos
-                  </span>
-              </div>
-
-              {isOwnerEntity ? (
-                  // OWNER / AGENT VIEW (Incoming Requests)
-                  <div className="grid grid-cols-1 gap-4">
-                      {incomingVisits.length === 0 ? (
-                          <div className="text-center py-10 text-gray-500">Não tem solicitações de visita pendentes.</div>
+       {isBroker && (
+         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+             <h3 className="text-lg font-bold text-gray-900 mb-4">Dados Profissionais (Corretor)</h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nº Licença / Carteira</label>
+                   <div className="flex items-center">
+                      <Briefcase className="w-4 h-4 text-gray-400 mr-2" />
+                      {isEditing ? (
+                          <input type="text" value={formData.licenseNumber} onChange={e => setFormData({...formData, licenseNumber: e.target.value})} className="w-full p-2 border border-gray-300 rounded" />
                       ) : (
-                          incomingVisits.map(visit => (
-                              <div key={visit.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                                      <div className="flex items-center space-x-4 mb-4 md:mb-0">
-                                          <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden shrink-0">
-                                              <img src={visit.propertyImage} className="w-full h-full object-cover" alt="Property" />
-                                          </div>
-                                          <div>
-                                              <h4 className="font-bold text-gray-900 text-sm">{visit.propertyTitle}</h4>
-                                              <p className="text-xs text-gray-500 mt-1">Interessado: <span className="font-medium text-gray-700">{visit.tenantName}</span></p>
-                                              <div className="flex items-center text-xs text-gray-600 mt-1">
-                                                  <CalendarDays className="w-3 h-3 mr-1" />
-                                                  {new Date(visit.date).toLocaleDateString()} às {visit.time}
-                                              </div>
-                                          </div>
-                                      </div>
-                                      
-                                      <div className="flex flex-col items-end space-y-2 w-full md:w-auto">
-                                          {visit.status === 'pending' ? (
-                                              <div className="flex space-x-2 w-full md:w-auto">
-                                                  <button 
-                                                      onClick={() => onUpdateVisitStatus(visit.id, 'rejected')}
-                                                      className="flex-1 md:flex-none px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-bold hover:bg-red-50 flex items-center justify-center"
-                                                  >
-                                                      <X className="w-3 h-3 mr-1" /> Rejeitar
-                                                  </button>
-                                                  <button 
-                                                      onClick={() => onUpdateVisitStatus(visit.id, 'confirmed')}
-                                                      className="flex-1 md:flex-none px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 flex items-center justify-center shadow-sm"
-                                                  >
-                                                      <Check className="w-3 h-3 mr-1" /> Confirmar
-                                                  </button>
-                                              </div>
-                                          ) : (
-                                              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                                                  visit.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                              }`}>
-                                                  {visit.status === 'confirmed' ? 'Confirmada' : 'Rejeitada'}
-                                              </span>
-                                          )}
-                                          {visit.message && (
-                                              <p className="text-xs text-gray-500 italic bg-gray-50 p-2 rounded max-w-xs text-right">
-                                                  "{visit.message}"
-                                              </p>
-                                          )}
-                                      </div>
-                                  </div>
-                              </div>
-                          ))
+                          <p className="font-medium text-gray-900">{user.licenseNumber}</p>
                       )}
-                  </div>
-              ) : (
-                  // TENANT VIEW (Outgoing Requests)
-                  <div className="grid grid-cols-1 gap-4">
-                      {myVisits.length === 0 ? (
-                          <div className="text-center py-10 text-gray-500">Ainda não agendou nenhuma visita.</div>
+                   </div>
+                </div>
+                 <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Website</label>
+                   <div className="flex items-center">
+                      <Globe className="w-4 h-4 text-gray-400 mr-2" />
+                      {isEditing ? (
+                          <input type="text" value={formData.companyWebsite} onChange={e => setFormData({...formData, companyWebsite: e.target.value})} className="w-full p-2 border border-gray-300 rounded" />
                       ) : (
-                          myVisits.map(visit => (
-                              <div key={visit.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                                  <div className="flex items-center space-x-4">
-                                      <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden shrink-0">
-                                          <img src={visit.propertyImage} className="w-full h-full object-cover" alt="Property" />
-                                      </div>
-                                      <div className="flex-1">
-                                          <div className="flex justify-between items-start">
-                                              <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{visit.propertyTitle}</h4>
-                                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                                  visit.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                  visit.status === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                              }`}>
-                                                  {visit.status === 'pending' ? 'Pendente' : visit.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
-                                              </span>
-                                          </div>
-                                          <div className="flex items-center text-xs text-gray-600 mt-2">
-                                              <CalendarDays className="w-3 h-3 mr-1" />
-                                              {new Date(visit.date).toLocaleDateString()}
-                                              <span className="mx-2">•</span>
-                                              <Clock className="w-3 h-3 mr-1" />
-                                              {visit.time}
-                                          </div>
-                                          {visit.status === 'confirmed' && (
-                                              <p className="text-xs text-green-600 mt-1 font-medium">Compareça no local à hora marcada.</p>
-                                          )}
-                                      </div>
-                                  </div>
-                              </div>
-                          ))
+                          <a href={user.companyWebsite} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-600 hover:underline">{user.companyWebsite}</a>
                       )}
-                  </div>
+                   </div>
+                </div>
+             </div>
+         </div>
+       )}
+    </div>
+  );
+
+  const renderProperties = () => (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {userProperties.map((prop) => (
+          <div
+            key={prop.id}
+            className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col"
+          >
+            <img
+              src={prop.images[0]}
+              className="w-full h-32 object-cover rounded mb-3"
+              alt={prop.title}
+            />
+            <div className="flex-grow">
+              <h4 className="font-bold text-gray-800">{prop.title}</h4>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  prop.status === 'available'
+                    ? 'bg-green-100 text-green-800'
+                    : prop.status === 'pending'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : prop.status === 'approved_waiting_payment'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {prop.status.replace(/_/g, ' ')}
+              </span>
+              {prop.rejectionReason && (
+                <p className="text-xs text-red-500 mt-1">
+                  {prop.rejectionReason}
+                </p>
               )}
+            </div>
+            {prop.status === 'approved_waiting_payment' && (
+              <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <p className="text-xs text-blue-800 mb-2">
+                  Seu imóvel foi aprovado! Efetue o pagamento da taxa para
+                  publicá-lo.
+                </p>
+                <button
+                  onClick={() => setPaymentModalState({ isOpen: true, propertyId: prop.id })}
+                  className="w-full bg-blue-600 text-white py-1 rounded text-xs font-bold hover:bg-blue-700"
+                >
+                  Pagar Taxa de Publicação (3.000 AOA)
+                </button>
+              </div>
+            )}
           </div>
-      );
-  };
-
-  const renderContractsTab = () => (
-      <div className="space-y-6 animate-fadeIn">
-          <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-xl font-bold text-gray-800">Meus Contratos</h2>
-              <button className="text-sm text-brand-600 font-medium hover:underline flex items-center">
-                  <FileText className="w-4 h-4 mr-1"/> Ver Arquivo
-              </button>
-          </div>
-
-          {myContracts.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  <FileSignature className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">Nenhum contrato ativo ou pendente encontrado.</p>
-              </div>
-          ) : (
-              <div className="grid grid-cols-1 gap-4">
-                  {myContracts.map(contract => (
-                      <div key={contract.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:border-brand-300 transition-colors">
-                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                              <div className="mb-4 md:mb-0">
-                                  <div className="flex items-center mb-1">
-                                      <h4 className="font-bold text-gray-900 text-lg mr-2">{contract.propertyTitle}</h4>
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                                          contract.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
-                                          contract.status === 'pending_signature' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                          'bg-gray-50 text-gray-600 border-gray-200'
-                                      }`}>
-                                          {contract.status === 'active' ? 'Vigente' : contract.status === 'pending_signature' ? 'Por Assinar' : contract.status === 'terminated' ? 'Terminado' : contract.status}
-                                      </span>
-                                  </div>
-                                  <div className="text-sm text-gray-500 space-y-1">
-                                      <p>Ref: {contract.id} • {contract.type === 'lease' ? 'Arrendamento' : 'Venda'}</p>
-                                      <p>Outorgante: <span className="font-medium text-gray-700">{user.role === 'owner' ? contract.tenantName : contract.ownerName}</span></p>
-                                      <p className="text-xs flex items-center mt-1">
-                                          <Clock className="w-3 h-3 mr-1" />
-                                          {contract.startDate} {contract.endDate ? `até ${contract.endDate}` : ''}
-                                      </p>
-                                  </div>
-                              </div>
-
-                              <div className="flex flex-col items-end space-y-2 w-full md:w-auto">
-                                  <div className="text-xl font-bold text-brand-600">
-                                      {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: contract.currency }).format(contract.value)}
-                                  </div>
-                                  
-                                  <div className="flex space-x-2 w-full md:w-auto">
-                                      <button 
-                                        onClick={() => handleDownloadContract(contract.id)}
-                                        className="flex-1 md:flex-none flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                                      >
-                                          <Download className="w-4 h-4 mr-1" /> PDF
-                                      </button>
-                                      
-                                      {/* Signature Button - Available for Owner Entities too */}
-                                      {contract.status === 'pending_signature' && (
-                                          <button 
-                                              onClick={() => handleSignContract(contract.id)}
-                                              className="flex-1 md:flex-none flex items-center justify-center px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm transition-colors"
-                                          >
-                                              <PenTool className="w-4 h-4 mr-1" /> Assinar
-                                          </button>
-                                      )}
-
-                                      {/* Management Buttons for Owner Entities (Owners, Brokers, Legal Reps) */}
-                                      {contract.status === 'active' && isOwnerEntity && (
-                                          <>
-                                            <button 
-                                                onClick={() => handleRenewContract(contract.id)}
-                                                className="flex-1 md:flex-none flex items-center justify-center px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-bold hover:bg-green-100"
-                                            >
-                                                <RefreshCw className="w-3 h-3 mr-1" /> Renovar
-                                            </button>
-                                            <button 
-                                                onClick={() => handleTerminateContract(contract.id)}
-                                                className="flex-1 md:flex-none flex items-center justify-center px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100"
-                                            >
-                                                <XCircle className="w-3 h-3 mr-1" /> Rescindir
-                                            </button>
-                                          </>
-                                      )}
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-          )}
-
-          {/* Signature Modal */}
-          {signingContractId && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
-                      <button 
-                          onClick={() => setSigningContractId(null)}
-                          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-                      >
-                          <X className="w-6 h-6" />
-                      </button>
-                      
-                      <div className="text-center mb-6">
-                          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <PenTool className="w-8 h-8 text-blue-600" />
-                          </div>
-                          <h3 className="text-xl font-bold text-gray-900">Assinatura Digital Kiá</h3>
-                          <p className="text-sm text-gray-500">Para concluir, confirme a sua identidade.</p>
-                      </div>
-
-                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
-                          <div 
-                              onClick={() => setBiConfirmed(!biConfirmed)}
-                              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${biConfirmed ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-white hover:border-blue-400'}`}
-                          >
-                              <div className="flex items-center">
-                                  <div className={`w-5 h-5 rounded border flex items-center justify-center mr-3 shrink-0 ${biConfirmed ? 'bg-green-500 border-green-500' : 'border-gray-400'}`}>
-                                      {biConfirmed && <Check className="w-3.5 h-3.5 text-white" />}
-                                  </div>
-                                  <div>
-                                      {isLegalRep ? (
-                                          <>
-                                            <span className="text-xs text-gray-500 block">Declaração de Representação</span>
-                                            <span className="font-bold text-gray-800 text-sm leading-tight block">
-                                                Declaro que possuo poderes legais para assinar em nome de {user.representedEntityName || 'entidade representada'}.
-                                            </span>
-                                          </>
-                                      ) : (
-                                          <>
-                                            <span className="text-xs text-gray-500 block">Confirmo que sou portador do BI</span>
-                                            <span className="font-mono font-bold text-gray-800">{user.bi || '004729123LA042'}</span>
-                                          </>
-                                      )}
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-
-                      <button 
-                          onClick={confirmSignature}
-                          disabled={!biConfirmed}
-                          className={`w-full py-3 rounded-xl font-bold flex items-center justify-center transition-all ${
-                              biConfirmed 
-                              ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg' 
-                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          }`}
-                      >
-                          Confirmar Assinatura
-                      </button>
-                  </div>
-              </div>
-          )}
+        ))}
       </div>
+    </div>
+  );
+
+  const renderVisits = () => (
+    <div className="space-y-4 animate-fadeIn">
+        {visits.map(visit => (
+            <div key={visit.id} className="bg-white p-4 rounded-lg border border-gray-200 flex flex-col sm:flex-row justify-between sm:items-center">
+                <div>
+                    <p className="font-bold text-gray-800">{visit.propertyTitle}</p>
+                    <p className="text-sm text-gray-500">
+                        {new Date(visit.date).toLocaleDateString()} às {visit.time}
+                    </p>
+                </div>
+                 <div className="flex space-x-2 mt-4 sm:mt-0">
+                    {visit.status === 'pending' && isOwner && (
+                        <>
+                            <button onClick={() => onUpdateVisitStatus(visit.id, 'rejected')} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold"><XCircle className="w-4 h-4 inline mr-1"/> Rejeitar</button>
+                            <button onClick={() => onUpdateVisitStatus(visit.id, 'confirmed')} className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold"><CheckCircle className="w-4 h-4 inline mr-1"/> Confirmar</button>
+                        </>
+                    )}
+                    <span className="text-xs font-bold uppercase">{visit.status}</span>
+                 </div>
+            </div>
+        ))}
+    </div>
+  );
+
+  const renderNotifications = () => (
+    <div className="space-y-3 animate-fadeIn">
+       {notifications.map(n => (
+         <div key={n.id} className="bg-white p-4 rounded-lg border border-gray-200">
+            <h4 className="font-bold text-gray-800 text-sm">{n.title}</h4>
+            <p className="text-sm text-gray-600">{n.message}</p>
+            <p className="text-xs text-gray-400 mt-2">{new Date(n.timestamp).toLocaleString()}</p>
+         </div>
+       ))}
+    </div>
+  );
+
+  const renderContracts = () => (
+    <div className="space-y-4 animate-fadeIn">
+        {contracts.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <FileText className="mx-auto w-12 h-12 text-gray-300" />
+                <p className="mt-4 text-gray-500">Nenhum contrato associado à sua conta.</p>
+            </div>
+        ) : (
+            contracts.map(contract => (
+                <div key={contract.id} className="bg-white p-4 rounded-lg border border-gray-200 flex flex-col sm:flex-row justify-between sm:items-center">
+                    <div>
+                        <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                contract.status === 'active' ? 'bg-green-100 text-green-800' :
+                                contract.status === 'pending_signature' ? 'bg-yellow-100 text-yellow-800' :
+                                contract.status === 'terminated' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+                            }`}>{contract.status.replace('_', ' ')}</span>
+                            <p className="font-bold text-gray-800">{contract.propertyTitle}</p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">ID: {contract.id} | Início: {new Date(contract.startDate).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+                        {contract.status === 'pending_signature' && (
+                            <>
+                                <button onClick={() => setRefuseModal({ isOpen: true, contractId: contract.id })} className="bg-red-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center shadow-sm hover:bg-red-600"><XCircle className="w-4 h-4 mr-1"/> Recusar</button>
+                                <button onClick={() => onUpdateContractStatus(contract.id, 'active')} className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center shadow-sm hover:bg-green-700"><FileSignature className="w-4 h-4 mr-1"/> Assinar Digitalmente</button>
+                            </>
+                        )}
+                        {(contract.status === 'active' || contract.status === 'expired' || contract.status === 'terminated') && (
+                            <button onClick={() => handleViewContract(contract)} className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center shadow-sm hover:bg-blue-700"><Eye className="w-4 h-4 mr-1"/> Ver Contrato</button>
+                        )}
+                        <button onClick={() => alert('Ticket de suporte legal criado!')} className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded text-xs font-bold flex items-center hover:bg-gray-200"><HelpCircle className="w-4 h-4 mr-1"/> Suporte</button>
+                    </div>
+                </div>
+            ))
+        )}
+    </div>
+  );
+
+  const renderDocuments = () => (
+    <div className="space-y-4 animate-fadeIn">
+         {documents.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <FileText className="mx-auto w-12 h-12 text-gray-300" />
+                <p className="mt-4 text-gray-500">Nenhum documento financeiro disponível.</p>
+            </div>
+        ) : (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                        <tr>
+                            <th className="p-3">Documento</th>
+                            <th className="p-3">Data</th>
+                            <th className="p-3">Valor</th>
+                            <th className="p-3 text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                    {documents.map(doc => (
+                        <tr key={doc.id}>
+                            <td className="p-3 font-medium text-gray-800 capitalize">{doc.title}</td>
+                            <td className="p-3 text-gray-600">{new Date(doc.date).toLocaleDateString()}</td>
+                            <td className="p-3 text-gray-800 font-mono">{doc.amount ? new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(doc.amount) : 'N/A'}</td>
+                            <td className="p-3 text-right space-x-2">
+                                <button onClick={() => handleViewDocument(doc)} className="text-blue-600 hover:underline text-xs font-bold inline-flex items-center"><Eye className="w-3 h-3 mr-1"/>Ver</button>
+                                <button onClick={() => handleViewDocument(doc)} className="text-green-600 hover:underline text-xs font-bold inline-flex items-center"><Download className="w-3 h-3 mr-1"/>Baixar</button>
+                            </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+    </div>
+  );
+
+  const TabButton = ({ id, label, icon: Icon }: {id: string, label: string, icon: React.ElementType}) => (
+    <button 
+        onClick={() => setActiveTab(id as any)}
+        className={`flex items-center space-x-2 px-3 py-2 text-sm font-bold rounded-md whitespace-nowrap ${activeTab === id ? 'bg-brand-50 text-brand-600' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`}
+    >
+        <Icon className="w-4 h-4" />
+        <span>{label}</span>
+    </button>
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Back Button */}
-      {onBack && (
-          <button onClick={onBack} className="flex items-center text-gray-500 hover:text-gray-900 mb-4 transition-colors">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao Início
-          </button>
+    <div className="bg-gray-50 min-h-screen">
+      <PublicationFeeModal
+          isOpen={paymentModalState.isOpen}
+          onClose={() => setPaymentModalState({ isOpen: false, propertyId: null })}
+          onConfirm={handleConfirmFeePayment}
+      />
+      {viewingDocument && (
+        <DocumentTemplate 
+            type={viewingDocument.type}
+            data={viewingDocument.data}
+            onClose={() => setViewingDocument(null)}
+        />
       )}
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Minha Conta</h1>
+      {refuseModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+                <div className="p-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center"><AlertTriangle className="w-5 h-5 mr-2 text-red-500"/>Recusar Contrato</h3>
+                    <p className="text-sm text-gray-600 mb-4">Por favor, forneça uma justificação clara para a recusa. Esta informação será enviada à equipa de Compliance e ao proprietário, e ficará registada para auditoria.</p>
+                    <textarea 
+                        value={refuseReason}
+                        onChange={(e) => setRefuseReason(e.target.value)}
+                        className="w-full h-24 p-2 border border-gray-300 rounded-md text-sm focus:ring-brand-500 focus:border-brand-500"
+                        placeholder="Ex: As condições negociadas no chat não estão refletidas no contrato..."
+                    />
+                </div>
+                <div className="bg-gray-50 px-6 py-3 flex justify-end space-x-3">
+                    <button onClick={() => setRefuseModal({ isOpen: false, contractId: null })} className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-100 rounded-lg text-sm">Cancelar</button>
+                    <button onClick={handleRefuseContract} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg text-sm hover:bg-red-700 shadow-sm">Confirmar Recusa</button>
+                </div>
+            </div>
+        </div>
+      )}
 
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Sidebar Navigation */}
-        <div className="w-full md:w-64 flex-shrink-0">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-             <div className={`p-6 border-b border-brand-100 flex flex-col items-center ${isInternalStaff ? 'bg-gray-900' : 'bg-brand-50'}`}>
-                {/* Profile Image Upload */}
-                <input 
-                    type="file" 
-                    ref={profileImageRef} 
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={handleProfileImageUpload}
-                />
-                <div 
-                    onClick={() => profileImageRef.current?.click()}
-                    className="w-24 h-24 rounded-full bg-gray-200 mb-3 overflow-hidden border-4 border-white shadow-sm relative group cursor-pointer"
-                >
-                    {user.profileImage ? (
-                        <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                        <div className={`w-full h-full flex items-center justify-center ${isInternalStaff ? 'bg-gray-700 text-white' : 'bg-brand-100 text-brand-500'}`}>
-                             {getRoleIcon()}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col md:flex-row md:items-center justify-between">
+            <div className="flex items-center">
+                <div className="w-16 h-16 bg-brand-500 rounded-full flex items-center justify-center text-white font-bold text-2xl mr-4 border-4 border-white ring-2 ring-brand-200">
+                    {user.name.charAt(0)}
+                </div>
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900">{user.name}</h2>
+                    <p className="text-gray-500 capitalize">{user.role.replace('_', ' ')}</p>
+                    {user.isIdentityVerified && (
+                        <div className="flex items-center text-xs font-bold text-accent-600 mt-1 bg-accent-500/10 px-2 py-0.5 rounded-full w-fit">
+                            <ShieldCheck className="w-3 h-3 mr-1"/> Identidade Verificada
                         </div>
                     )}
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="w-6 h-6 text-white" />
-                    </div>
                 </div>
-                <h3 className={`font-bold text-center ${isInternalStaff ? 'text-white' : 'text-gray-900'}`}>{user.name}</h3>
-                <span className={`text-xs px-2 py-1 rounded-full capitalize mt-1 ${isInternalStaff ? 'bg-gray-700 text-gray-300' : 'text-brand-600 bg-brand-100'}`}>
-                    {getRoleLabel()}
-                </span>
-             </div>
-             
-             <nav className="p-2 space-y-1">
-                <button 
-                    onClick={() => setActiveTab('profile')}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'profile' ? 'bg-gray-100 text-brand-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                >
-                    <UserIcon className="w-5 h-5" />
-                    <span>Dados Pessoais</span>
-                </button>
-                
-                {/* Contracts Tab - New */}
-                {!isInternalStaff && (
-                    <button 
-                        onClick={() => setActiveTab('contracts')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'contracts' ? 'bg-gray-100 text-brand-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        <FileSignature className="w-5 h-5" />
-                        <span>Contratos</span>
-                    </button>
-                )}
-
-                {/* Common for Tenant/Owner/Rep */}
-                {!isInternalStaff && (
-                    <button 
-                        onClick={() => setActiveTab('visits')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'visits' ? 'bg-gray-100 text-brand-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        <CalendarDays className="w-5 h-5" />
-                        <span>Visitas</span>
-                    </button>
-                )}
-                
-                {/* Tenant Specific Tabs (HIDDEN FOR INTERNAL STAFF & OWNERS) */}
-                {!isOwnerEntity && !isInternalStaff && (
-                    <button 
-                        onClick={() => setActiveTab('notifications')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notifications' ? 'bg-gray-100 text-brand-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        <Bell className="w-5 h-5" />
-                        <span>Notificações</span>
-                    </button>
-                )}
-
-                {/* Owner Entity Specific Tabs (Owners, Brokers, Legal Reps) */}
-                {isOwnerEntity && (
-                    <button 
-                        onClick={() => setActiveTab('dashboard')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-gray-100 text-brand-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        <BarChart2 className="w-5 h-5" />
-                        <span>Gestão de Imóveis</span>
-                    </button>
-                )}
-             </nav>
-          </div>
+            </div>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8 animate-fadeIn">
-            
-            {/* PROFILE TAB */}
-            {activeTab === 'profile' && (
-                <div className="space-y-6">
-                    <div className="flex justify-between items-center border-b pb-4">
-                        <h2 className="text-xl font-bold text-gray-800">Editar Perfil</h2>
-                        {isInternalStaff && (
-                            <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full flex items-center">
-                                <Shield className="w-3 h-3 mr-1" /> Conta Corporativa
-                            </span>
-                        )}
-                    </div>
-                    
-                    <h3 className="text-md font-bold text-gray-700">Identificação & Contactos</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
-                            <input 
-                                type="text" 
-                                value={formData.name}
-                                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input 
-                                type="email" 
-                                value={formData.email}
-                                disabled
-                                className="w-full p-2 border border-gray-200 bg-gray-50 rounded-md text-gray-500 cursor-not-allowed"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                            <input 
-                                type="tel" 
-                                value={formData.phone}
-                                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                                placeholder="+244 9XX XXX XXX"
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
-                            <input 
-                                type="date" 
-                                value={formData.dob}
-                                onChange={(e) => setFormData({...formData, dob: e.target.value})}
-                                className="w-full p-2 border border-gray-300 rounded-md"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nacionalidade</label>
-                            <select 
-                                value={formData.nationality}
-                                onChange={(e) => setFormData({...formData, nationality: e.target.value})}
-                                className="w-full p-2 border border-gray-300 rounded-md"
-                            >
-                                <option value="Angolana">Angolana</option>
-                                <option value="Estrangeira">Estrangeira</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                {isCorporate ? 'NIF' : 'Nº Bilhete de Identidade'}
-                            </label>
-                            <input 
-                                type="text" 
-                                value={formData.bi}
-                                onChange={(e) => setFormData({...formData, bi: e.target.value})}
-                                className="w-full p-2 border border-gray-300 rounded-md font-mono"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Corporate Fields */}
-                    {isCorporate && (
-                        <div className="pt-4 border-t border-gray-100">
-                            <h3 className="text-md font-bold text-gray-700 mb-4 flex items-center">
-                                <Building className="w-4 h-4 mr-2" /> Dados da Empresa
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Razão Social</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.companyName}
-                                        onChange={(e) => setFormData({...formData, companyName: e.target.value})}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Representante Legal</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.repName}
-                                        onChange={(e) => setFormData({...formData, repName: e.target.value})}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Função / Cargo</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.repType}
-                                        onChange={(e) => setFormData({...formData, repType: e.target.value})}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Legal Rep (Third-Party) Fields */}
-                    {isLegalRep && (
-                        <div className="pt-4 border-t border-gray-100">
-                            <h3 className="text-md font-bold text-gray-700 mb-4 flex items-center">
-                                <Shield className="w-4 h-4 mr-2" /> Entidade Representada
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Entidade/Proprietário</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.representedEntityName}
-                                        onChange={(e) => setFormData({...formData, representedEntityName: e.target.value})}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">NIF/BI da Entidade</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.representedEntityID}
-                                        onChange={(e) => setFormData({...formData, representedEntityID: e.target.value})}
-                                        className="w-full p-2 border border-gray-300 rounded-md font-mono"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Broker Fields */}
-                    {user.role === 'broker' && (
-                        <div className="pt-4 border-t border-gray-100">
-                            <h3 className="text-md font-bold text-gray-700 mb-4 flex items-center">
-                                <Briefcase className="w-4 h-4 mr-2" /> Dados Profissionais
-                            </h3>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nº Carteira Profissional / Licença INH</label>
-                                <input 
-                                    type="text" 
-                                    value={formData.licenseNumber}
-                                    onChange={(e) => setFormData({...formData, licenseNumber: e.target.value})}
-                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="pt-4 border-t border-gray-100">
-                        <h3 className="text-md font-bold text-gray-800 mb-4 flex items-center">
-                            <MapPin className="w-5 h-5 mr-2 text-gray-500" /> Morada
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Província</label>
-                                <select 
-                                    value={formData.province}
-                                    onChange={(e) => setFormData({...formData, province: e.target.value})}
-                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                >
-                                    <option value="">Selecionar...</option>
-                                    {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Município</label>
-                                <input 
-                                    type="text"
-                                    value={formData.municipality}
-                                    onChange={(e) => setFormData({...formData, municipality: e.target.value})}
-                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Endereço Completo</label>
-                                <input 
-                                    type="text"
-                                    value={formData.street}
-                                    onChange={(e) => setFormData({...formData, street: e.target.value})}
-                                    placeholder="Rua, Bairro, Nº Casa / Edifício"
-                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end pt-4">
-                        <button 
-                            onClick={handleSaveProfile}
-                            className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-2 rounded-md font-bold flex items-center shadow-sm transition-transform hover:-translate-y-0.5"
-                        >
-                            <Save className="w-4 h-4 mr-2" /> Guardar Alterações
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* CONTRACTS TAB */}
-            {activeTab === 'contracts' && renderContractsTab()}
-
-            {/* VISITS TAB */}
-            {activeTab === 'visits' && renderVisitsTab()}
-
-            {/* DASHBOARD TAB (Owners/Brokers/Legal Reps) */}
-            {activeTab === 'dashboard' && isOwnerEntity && (
-                <div className="space-y-6">
-                    <h2 className="text-xl font-bold text-gray-800 border-b pb-4">Painel de Gestão</h2>
-                    <p className="text-gray-500">Métricas e gestão de anúncios em breve...</p>
-                </div>
-            )}
-
-            {/* NOTIFICATIONS TAB */}
-            {activeTab === 'notifications' && (
-                <div className="space-y-6">
-                    <h2 className="text-xl font-bold text-gray-800 border-b pb-4">Notificações</h2>
-                    <p className="text-gray-500">Sem novas notificações.</p>
-                </div>
-            )}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mt-6">
+            <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-2 sm:space-x-4 overflow-x-auto scrollbar-hide">
+                    <TabButton id="overview" label="Perfil" icon={Settings} />
+                    {isOwner && <TabButton id="properties" label="Imóveis" icon={Building} />}
+                    <TabButton id="contracts" label="Contratos" icon={FileText} />
+                    <TabButton id="documents" label="Documentos" icon={FileText} />
+                    <TabButton id="visits" label="Visitas" icon={Calendar} />
+                    <TabButton id="notifications" label="Notificações" icon={Bell} />
+                </nav>
+            </div>
+            <div className="pt-6">
+                {activeTab === 'overview' && renderOverview()}
+                {activeTab === 'properties' && renderProperties()}
+                {activeTab === 'visits' && renderVisits()}
+                {activeTab === 'notifications' && renderNotifications()}
+                {activeTab === 'contracts' && renderContracts()}
+                {activeTab === 'documents' && renderDocuments()}
+            </div>
         </div>
       </div>
     </div>

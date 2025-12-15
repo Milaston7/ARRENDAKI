@@ -8,26 +8,39 @@ export type UserRole =
   | 'admin'              // Administrador (Acesso Total)
   | 'commercial_manager' // Gestor/Manager (Aprovações, Relatórios)
   | 'collaborator'       // Colaborador (Cria posts, submete para aprovação)
-  | 'security_manager'   // Gestor de Segurança
+  | 'security_manager'   // Gestor de Segurança (Analista de Conformidade)
+  | 'legal_compliance'   // Jurídico e Compliance (Contratos, Risco, Fraude)
   | 'it_tech';           // Técnico de TI
 
 export interface User {
   id: string;
   name: string;
   role: UserRole;
+  group: 'internal' | 'external'; // IAM Separation
   email: string;
   isAuthenticated: boolean;
+  
+  // Account Status for IAM
+  accountStatus: 'active' | 'blocked' | 'suspended_legal' | 'pending_onboarding';
+  lastLogin?: string;
+  
   // New profile fields from Registration
   phone?: string;
   dob?: string; // Date of Birth
   nationality?: string;
   bi?: string; // Bilhete de Identidade OR NIF for companies
+  joinedAt?: string; // Data de criação da conta
   
   // Corporate / Broker specific
   companyName?: string;
   repName?: string;
   repType?: string;
   licenseNumber?: string; // For Brokers
+  
+  // Extended Corporate Fields
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
 
   // Third-Party Representative Specific
   representedEntityName?: string;
@@ -36,7 +49,6 @@ export interface User {
   profileImage?: string;
   idDocumentUrl?: string;
   isIdentityVerified?: boolean; // Admin verification status
-  status?: 'active' | 'suspended'; // Account status management
   
   // Security
   is2FAEnabled?: boolean;
@@ -53,6 +65,17 @@ export interface User {
   };
 }
 
+export interface Notification {
+  id: string;
+  userId: string; // Target user
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'system';
+  isRead: boolean;
+  timestamp: string;
+  actionLink?: string; // Deep link to view (e.g., 'profile', 'property_id')
+}
+
 export interface Property {
   id: string;
   title: string;
@@ -64,9 +87,10 @@ export interface Property {
     address: string;
   };
   features: string[];
-  type: 'Apartamento' | 'Vivenda' | 'Escritório' | 'Loja' | 'Terreno';
+  type: 'Apartamento' | 'Vivenda' | 'Escritório' | 'Loja' | 'Terreno' | 'Prédio Rústico' | 'Prédio Urbano';
   listingType: 'Arrendar' | 'Comprar';
-  status: 'available' | 'rented' | 'sold' | 'pending' | 'rejected' | 'archived'; // Updated statuses
+  // Updated status to include payment step
+  status: 'available' | 'rented' | 'sold' | 'pending' | 'rejected' | 'archived' | 'approved_waiting_payment' | 'suspended_legal'; // Added suspended_legal 
   rejectionReason?: string; // New field for moderation
   bedrooms: number;
   bathrooms: number;
@@ -93,6 +117,20 @@ export interface ChatMessage {
   isEncrypted?: boolean; // New: E2EE Flag
 }
 
+export interface ChatConversation {
+  id: string;
+  propertyId?: string;
+  propertyTitle?: string;
+  propertyImage?: string;
+  otherUserId: string;
+  otherUserName: string;
+  otherUserRole: UserRole;
+  lastMessage: string;
+  lastMessageTimestamp: string; // ISO or human readable
+  unreadCount: number;
+  isVerified: boolean; // If the other user is verified
+}
+
 export interface FilterState {
   province: string;
   municipality: string;
@@ -110,7 +148,7 @@ export interface Transaction {
   amount: number;
   currency: 'AOA';
   // Updated statuses for Escrow workflow
-  status: 'pending' | 'completed' | 'failed' | 'escrow_held' | 'released' | 'refunded';
+  status: 'pending' | 'completed' | 'failed' | 'escrow_held' | 'released' | 'refunded' | 'suspended_fraud';
   date: string;
   userId: string;
   userName?: string; // Added for display convenience
@@ -138,6 +176,17 @@ export interface Contract {
   pdfUrl: string;
 }
 
+export interface DocumentRecord {
+  id: string;
+  type: 'invoice' | 'receipt' | 'contract';
+  title: string;
+  date: string;
+  url: string; // Mock URL or blob reference
+  relatedEntityId?: string; // Transaction ID or Contract ID
+  amount?: number; // For invoices/receipts
+  status: 'available' | 'processing';
+}
+
 export interface VerificationRequest {
   id: string;
   userId: string;
@@ -152,11 +201,35 @@ export interface VerificationRequest {
   reviewNotes?: string; // Reason for rejection or review
 }
 
+// --- IT & SYSTEM LOGS ---
 export interface SystemLog {
   id: string;
-  level: 'info' | 'warning' | 'error';
+  level: 'info' | 'warning' | 'error' | 'critical' | 'security';
+  action: string; // e.g., "LOGIN_ATTEMPT", "API_ERROR"
   message: string;
   timestamp: string;
+  userId?: string;
+  ip?: string;
+  module?: string; // e.g., "/admin/contracts"
+  statusCode?: number; // e.g., 500, 403
+  stackTrace?: string; // Limited stack trace for errors
+  details?: string;
+}
+
+export interface ServiceHealth {
+  id: string;
+  name: string; // e.g., "Database", "Payment Gateway"
+  status: 'healthy' | 'degraded' | 'down';
+  latency: number; // ms
+  lastChecked: string;
+}
+
+export interface DatabaseQuery {
+  id: string;
+  query: string;
+  duration: number; // ms
+  timestamp: string;
+  origin: string;
 }
 
 export interface FlaggedChat {
@@ -167,15 +240,27 @@ export interface FlaggedChat {
   timestamp: string;
 }
 
-// Mock Content Post for Collaborators
+// CMS / Blog Post - Updated for Kiá Content
 export interface BlogPost {
   id: string;
   title: string;
+  subtitle?: string; // Hook for SEO
   author: string;
-  status: 'draft' | 'pending_approval' | 'published';
+  category: 'legal' | 'safety' | 'market' | 'news' | 'tips';
+  status: 'draft' | 'pending_legal' | 'published' | 'rejected'; // Approval Flow
   date: string;
+  content: string; // HTML or Markdown
   excerpt?: string;
   image?: string;
+  
+  // SEO Fields
+  slug: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  
+  // Compliance
+  rejectionReason?: string;
+  approvedBy?: string;
 }
 
 // --- NEW TYPE FOR VISITS ---
@@ -191,4 +276,58 @@ export interface VisitRequest {
   time: string; // HH:MM
   status: 'pending' | 'confirmed' | 'rejected' | 'completed';
   message?: string;
+}
+
+// --- NEW TYPE FOR PROPOSALS ---
+export interface Proposal {
+  value: number;
+  startDate: string;
+  duration: string;
+  deposit: number;
+  conditions?: string;
+}
+
+// --- NEW: AUDIT & COMPLIANCE ---
+export interface AuditLog {
+  id: string;
+  action: string; // e.g., "Verify Document", "Release Escrow"
+  actor: string; // Staff ID or User ID
+  target: string; // Property ID or User ID
+  timestamp: string;
+  status: 'SUCCESS' | 'FAIL' | 'WARNING';
+  details: string;
+  ip: string;
+}
+
+// --- NEW: LEGAL MODULE TYPES ---
+export interface LegalClause {
+  id: string;
+  category: 'lease' | 'sale';
+  title: string;
+  content: string;
+  version: string; // e.g., "1.0", "1.1"
+  lastUpdated: string;
+  status: 'draft' | 'approved' | 'deprecated';
+  approvedBy?: string;
+}
+
+export interface LegalAlert {
+  id: string;
+  severity: 'critical' | 'high' | 'medium';
+  type: 'document_fraud' | 'suspicious_activity' | 'contract_breach';
+  targetUser: string;
+  targetUserName: string;
+  transactionId?: string;
+  description: string;
+  timestamp: string;
+  status: 'open' | 'investigating' | 'resolved' | 'suspended_transaction';
+}
+
+// --- NEW: FEEDBACK ---
+export interface Feedback {
+  transactionId: string;
+  userId: string;
+  rating: number; // 1-5
+  comment: string;
+  date: string;
 }

@@ -1,3 +1,4 @@
+
 export const PROVINCES = [
   "Bengo", "Benguela", "Bié", "Cabinda", "Cuando", "Cubango", 
   "Cuanza Norte", "Cuanza Sul", "Cunene", "Huambo", "Huíla", 
@@ -6,7 +7,7 @@ export const PROVINCES = [
 ];
 
 export const PROPERTY_TYPES = [
-  "Apartamento", "Vivenda", "Escritório", "Loja", "Terreno"
+  "Apartamento", "Vivenda", "Prédio Urbano", "Escritório", "Loja", "Terreno", "Prédio Rústico"
 ];
 
 export const AMENITIES = [

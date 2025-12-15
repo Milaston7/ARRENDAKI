@@ -1,6 +1,6 @@
 
-import React, { useState, useRef } from 'react';
-import { ChevronRight, ChevronLeft, Upload, CheckCircle, AlertTriangle, AlertCircle, X, Film, Image as ImageIcon, Trash2, FileText, ShieldCheck, Scale } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronRight, ChevronLeft, Upload, CheckCircle, AlertTriangle, AlertCircle, X, Film, Image as ImageIcon, Trash2, FileText, ShieldCheck, Scale, HandCoins } from 'lucide-react';
 import { PROVINCES, PROPERTY_TYPES, AMENITIES, MUNICIPALITIES_MOCK } from '../constants';
 import { Property } from '../types';
 
@@ -12,10 +12,12 @@ interface PropertyFormProps {
 const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [termsAccepted, setTermsAccepted] = useState(false); // New state for fee acceptance
+  
   const [formData, setFormData] = useState<Partial<Property>>({
     features: [],
     location: { province: 'Luanda', municipality: '', address: '' },
-    isGuaranteed: false,
+    isGuaranteed: true, // Default to true as per new flow emphasis
     images: [],
     videoUrl: '',
     documents: { identity: '', propertyOwnership: '' },
@@ -23,6 +25,9 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
     type: undefined,
     currency: 'AOA'
   });
+
+  // Local state for Price Input (Debounce)
+  const [priceInput, setPriceInput] = useState('');
 
   // Refs for hidden file inputs
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -36,6 +41,39 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
     ownership: false,
     video: false
   });
+
+  // Sync priceInput when entering step 3 or when formData loads
+  useEffect(() => {
+      if (step === 3 && formData.price) {
+          setPriceInput(formData.price.toString());
+      }
+  }, [step, formData.price]); // Add dependencies to ensure sync
+
+  // Debounce Validation for Price (Refined Logic)
+  useEffect(() => {
+      // Don't run validation if not on the price step
+      if (step !== 3) return;
+
+      const timer = setTimeout(() => {
+          // If input is empty, clear state and any existing error
+          if (!priceInput) {
+              updateFormData('price', undefined); // This helper also clears errors
+              return;
+          }
+
+          const val = parseFloat(priceInput);
+          if (isNaN(val) || val <= 0) {
+              // Invalid: Update Error and clear data to prevent proceeding
+              setFormData(prev => ({ ...prev, price: undefined }));
+              setErrors(prev => ({ ...prev, price: val < 0 ? "O valor não pode ser negativo." : "Defina um valor positivo válido." }));
+          } else {
+              // Valid: Update Data (this helper clears error automatically)
+              updateFormData('price', val);
+          }
+      }, 500); // 500ms debounce
+
+      return () => clearTimeout(timer);
+  }, [priceInput, step]);
 
   const updateFormData = (key: string, value: any) => {
     setFormData(prev => ({ ...prev, [key]: value }));
@@ -71,6 +109,59 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
     } else {
       updateFormData('features', [...currentFeatures, feature]);
     }
+  };
+
+  // --- Helper to identify non-residential/habitable structure types ---
+  const isLandOrCommercial = (type?: string) => {
+      const typesWithoutRooms = ['Terreno', 'Prédio Rústico', 'Loja', 'Escritório', 'Prédio Urbano'];
+      return type && typesWithoutRooms.includes(type);
+  };
+
+  // --- Validation Logic ---
+
+  const handleBlur = (field: string) => {
+    const newErrors = { ...errors };
+    const value = formData[field as keyof Property];
+
+    // Title Validation
+    if (field === 'title') {
+        if (!value || String(value).trim().length === 0) {
+            newErrors.title = "Defina um título para o anúncio.";
+        } else if (String(value).trim().length < 5) {
+            newErrors.title = "O título deve ter pelo menos 5 caracteres.";
+        } else {
+            delete newErrors.title;
+        }
+    }
+
+    // Area Validation
+    if (field === 'area') {
+         if (!value || Number(value) <= 0) {
+             newErrors.area = "Indique uma área válida (m²).";
+         } else {
+             delete newErrors.area;
+         }
+    }
+
+    // Bedrooms Validation
+    if (field === 'bedrooms' && !isLandOrCommercial(formData.type)) {
+         if (value === undefined || value === '' || Number(value) < 0) {
+             newErrors.bedrooms = "Indique o nº de quartos.";
+         } else {
+             delete newErrors.bedrooms;
+         }
+    }
+
+    // Bathrooms Validation
+    if (field === 'bathrooms' && !isLandOrCommercial(formData.type)) {
+         if (value === undefined || value === '' || Number(value) < 0) {
+             newErrors.bathrooms = "Indique o nº de WCs.";
+         } else {
+             delete newErrors.bathrooms;
+         }
+    }
+
+    setErrors(newErrors);
   };
 
   // --- File Handling Logic ---
@@ -127,15 +218,23 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
 
   const handleDocUpload = (file: File, type: 'identity' | 'propertyOwnership') => {
     const MAX_DOC_SIZE = 10 * 1024 * 1024; // 10MB
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    // Strictly allowed types: PDF, JPG, PNG
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+
+    // Reset previous error for this type
+    if (errors[type]) {
+       const newErrors = { ...errors };
+       delete newErrors[type];
+       setErrors(newErrors);
+    }
 
     if (!allowedTypes.includes(file.type)) {
-      alert("Formato inválido. Apenas PDF, JPG ou PNG.");
+      setErrors(prev => ({ ...prev, [type]: "Formato inválido. Apenas PDF, JPG ou PNG." }));
       return;
     }
 
     if (file.size > MAX_DOC_SIZE) {
-      alert("O documento excede o tamanho máximo de 10MB.");
+      setErrors(prev => ({ ...prev, [type]: "O documento excede o tamanho máximo de 10MB." }));
       return;
     }
 
@@ -144,13 +243,6 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
       ...prev,
       documents: { ...prev.documents, [type]: objectUrl }
     }));
-    
-    // Clear specific error if exists
-    if (errors[type]) {
-       const newErrors = { ...errors };
-       delete newErrors[type];
-       setErrors(newErrors);
-    }
   };
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'identity' | 'propertyOwnership') => {
@@ -166,6 +258,13 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
     }));
     if (type === 'identity' && identityInputRef.current) identityInputRef.current.value = '';
     if (type === 'propertyOwnership' && ownershipInputRef.current) ownershipInputRef.current.value = '';
+    
+    // Clear any lingering errors when removing
+    if (errors[type]) {
+       const newErrors = { ...errors };
+       delete newErrors[type];
+       setErrors(newErrors);
+    }
   };
 
   // Drag Events
@@ -191,7 +290,7 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
     }
   };
 
-  // --- Validation Logic ---
+  // --- Step Validation ---
 
   const validateStep = (currentStep: number): boolean => {
     const newErrors: Record<string, string> = {};
@@ -214,14 +313,19 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
       
       if (!formData.area || formData.area <= 0) newErrors.area = "Indique a área do imóvel (m²).";
       
-      if (formData.type !== 'Terreno' && formData.type !== 'Loja' && formData.type !== 'Escritório') {
+      // Only validate rooms/bathrooms if it's NOT land/commercial/rustic
+      if (!isLandOrCommercial(formData.type)) {
          if (formData.bedrooms === undefined || formData.bedrooms < 0) newErrors.bedrooms = "Indique o nº de quartos.";
          if (formData.bathrooms === undefined || formData.bathrooms < 0) newErrors.bathrooms = "Indique o nº de WCs.";
       }
     }
 
     if (currentStep === 3) {
-      if (!formData.price || formData.price <= 0) newErrors.price = "Defina um preço válido.";
+      // Validate positive price
+      if (!formData.price || Number(formData.price) <= 0) {
+          newErrors.price = "Defina um valor positivo válido (maior que zero).";
+      }
+      if (!termsAccepted) newErrors.terms = "É obrigatório aceitar a taxa de serviço Kiá Verify.";
     }
 
     if (currentStep === 4) {
@@ -255,6 +359,9 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
     if (validateStep(step)) {
         onSubmit({
             ...formData,
+            // If it's land/rustic, ensure we don't send garbage data for rooms
+            bedrooms: isLandOrCommercial(formData.type) ? 0 : formData.bedrooms,
+            bathrooms: isLandOrCommercial(formData.type) ? 0 : formData.bathrooms,
             id: Math.random().toString(36).substr(2, 9),
         });
     }
@@ -267,7 +374,7 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
   }`;
 
   const ErrorMsg = ({ errorKey }: { errorKey: string }) => errors[errorKey] ? (
-    <p className="text-red-500 text-xs mt-1 flex items-center">
+    <p className="text-red-500 text-xs mt-1 flex items-center animate-fadeIn">
       <AlertCircle className="w-3 h-3 mr-1" /> {errors[errorKey]}
     </p>
   ) : null;
@@ -290,7 +397,7 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
                 ref={ref}
                 onChange={(e) => onFileChange(e, type)}
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                accept=".pdf,.jpg,.jpeg,.png"
             />
             
             {!fileUrl ? (
@@ -447,6 +554,7 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
                         placeholder="Ex: T3 Moderno no Kilamba"
                         value={formData.title || ''}
                         onChange={e => updateFormData('title', e.target.value)}
+                        onBlur={() => handleBlur('title')}
                     />
                     <ErrorMsg errorKey="title" />
                  </div>
@@ -457,11 +565,12 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
                         className={getInputClass('area')}
                         value={formData.area || ''}
                         onChange={e => updateFormData('area', Number(e.target.value))}
+                        onBlur={() => handleBlur('area')}
                     />
                     <ErrorMsg errorKey="area" />
                  </div>
                  
-                 {formData.type !== 'Terreno' && formData.type !== 'Loja' && formData.type !== 'Escritório' && (
+                 {!isLandOrCommercial(formData.type) && (
                   <>
                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Quartos <span className="text-red-500">*</span></label>
@@ -470,6 +579,7 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
                             className={getInputClass('bedrooms')}
                             value={formData.bedrooms || ''}
                             onChange={e => updateFormData('bedrooms', Number(e.target.value))}
+                            onBlur={() => handleBlur('bedrooms')}
                         />
                         <ErrorMsg errorKey="bedrooms" />
                      </div>
@@ -480,6 +590,7 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
                             className={getInputClass('bathrooms')}
                             value={formData.bathrooms || ''}
                             onChange={e => updateFormData('bathrooms', Number(e.target.value))}
+                            onBlur={() => handleBlur('bathrooms')}
                         />
                         <ErrorMsg errorKey="bathrooms" />
                      </div>
@@ -524,33 +635,55 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
                         </select>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Preço {formData.listingType === 'Arrendar' ? '/ Mês' : ''} <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {formData.listingType === 'Arrendar' ? 'Renda Mensal' : 'Preço de Venda'} <span className="text-red-500">*</span>
+                        </label>
                         <input 
                             type="number" 
+                            min="0"
+                            step="any"
                             className={getInputClass('price')}
                             placeholder="0.00"
-                            value={formData.price || ''}
-                            onChange={e => updateFormData('price', Number(e.target.value))}
+                            value={priceInput}
+                            onChange={e => setPriceInput(e.target.value)}
                         />
                         <ErrorMsg errorKey="price" />
                     </div>
                 </div>
 
-                <div className="bg-brand-50 border border-brand-100 rounded-lg p-4">
-                    <label className="flex items-start space-x-3 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            checked={formData.isGuaranteed}
-                            onChange={e => updateFormData('isGuaranteed', e.target.checked)}
-                            className="mt-1 h-5 w-5 text-brand-600 rounded border-gray-300 focus:ring-brand-500" 
-                        />
-                        <div>
-                            <span className="block font-bold text-gray-900">Ativar Transação Garantida (2.5%)</span>
-                            <span className="block text-sm text-gray-600 mt-1">
-                                Aumente a confiança dos inquilinos. O valor é mantido numa conta segura (escrow) até à assinatura do contrato. Inclui o serviço <b>Kiá Contract</b>.
-                            </span>
+                {/* Mandatory Kiá Verify Acknowledgment */}
+                <div className={`p-4 rounded-lg border-2 transition-all ${termsAccepted ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className="flex items-start space-x-3">
+                        <div className="pt-1">
+                            <input 
+                                type="checkbox" 
+                                id="kia-terms"
+                                checked={termsAccepted}
+                                onChange={(e) => {
+                                    setTermsAccepted(e.target.checked);
+                                    if(errors.terms) {
+                                        const newErrors = {...errors};
+                                        delete newErrors.terms;
+                                        setErrors(newErrors);
+                                    }
+                                }}
+                                className="h-5 w-5 text-brand-600 rounded border-gray-300 focus:ring-brand-500 cursor-pointer" 
+                            />
                         </div>
-                    </label>
+                        <label htmlFor="kia-terms" className="cursor-pointer">
+                            <h4 className="font-bold text-gray-900 flex items-center">
+                                Compromisso Kiá Verify (2,5%) <ShieldCheck className="w-4 h-4 ml-2 text-brand-600"/>
+                            </h4>
+                            <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                                Declaro ter conhecimento e aceito a obrigatoriedade da taxa de serviço Kiá Verify de <strong>2,5%</strong> sobre o Valor Total da Transação (VTT).
+                            </p>
+                            <p className="text-xs text-gray-500 mt-2 bg-white/50 p-2 rounded border border-gray-200">
+                                <HandCoins className="w-3 h-3 inline mr-1" />
+                                Nota: Esta taxa será cobrada <strong>apenas após o sucesso</strong> da transação (assinatura do contrato). A publicação do imóvel tem uma taxa fixa separada de 3.000 AOA.
+                            </p>
+                        </label>
+                    </div>
+                    <ErrorMsg errorKey="terms" />
                 </div>
             </div>
         )}
@@ -690,8 +823,8 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
                     
                     {renderDocUploadArea(
                         'propertyOwnership', 
-                        'Título de Propriedade / Registo Predial', 
-                        'Certidão do Registo Predial, Contrato Promessa Compra e Venda ou Escritura.', 
+                        formData.listingType === 'Comprar' ? 'Título de Propriedade / Escritura' : 'Título de Propriedade / Contrato de Gestão', 
+                        'Documento legal que comprova a legitimidade para transacionar o imóvel (PDF, JPG, PNG até 10MB).', 
                         ownershipInputRef,
                         'propertyOwnership'
                     )}
@@ -702,7 +835,7 @@ const PropertyForm: React.FC<PropertyFormProps> = ({ onSubmit, onCancel }) => {
                          <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
                          <div className="text-sm text-yellow-800">
                              <p className="font-bold">Taxa de Publicação: 3.000 AOA</p>
-                             <p>O pagamento será solicitado após a conclusão da verificação documental.</p>
+                             <p>O pagamento será solicitado após a conclusão da verificação documental pela nossa equipa.</p>
                          </div>
                      </div>
                  </div>

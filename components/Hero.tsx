@@ -1,95 +1,122 @@
 
-import React, { useState } from 'react';
-import { Search, MapPin, Home, ShieldCheck, CheckCircle, Banknote } from 'lucide-react';
-import { PROVINCES } from '../constants';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, MapPin, Home, Banknote, Navigation, CheckCircle } from 'lucide-react';
+import { PROVINCES, MUNICIPALITIES_MOCK } from '../constants';
 import { FilterState } from '../types';
 
 interface HeroProps {
   onSearch: (filters: Partial<FilterState>) => void;
+  onNavigate: (view: string) => void;
 }
 
-const QUICK_PROVINCES = ['Luanda', 'Benguela', 'Huíla', 'Huambo', 'Namibe'];
-
-const Hero: React.FC<HeroProps> = ({ onSearch }) => {
+const Hero: React.FC<HeroProps> = ({ onSearch, onNavigate }) => {
   const [province, setProvince] = useState('');
+  const [municipality, setMunicipality] = useState('');
   const [type, setType] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [listingType, setListingType] = useState('');
 
-  const handleSearch = () => {
+  // Debounce logic for prices to auto-search without needing to click the button every time
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        // Only auto-search if there's a value or if we are clearing values
+        if (minPrice || maxPrice || (minPrice === '' && maxPrice === '')) {
+            onSearch({ 
+                province, 
+                municipality,
+                type,
+                listingType,
+                minPrice: minPrice ? Number(minPrice) : undefined,
+                maxPrice: maxPrice ? Number(maxPrice) : undefined
+            });
+        }
+    }, 600); // 600ms delay
+
+    return () => clearTimeout(timer);
+  }, [minPrice, maxPrice]); // Only re-run if prices change
+
+  const handleManualSearch = () => {
     onSearch({ 
       province, 
+      municipality,
       type,
+      listingType,
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined
     });
+    
+    // Smooth scroll to results
+    setTimeout(() => {
+        const element = document.getElementById('property-list');
+        element?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
-  const handleQuickFilter = (selectedProvince: string) => {
-    setProvince(selectedProvince);
-    onSearch({ 
-      province: selectedProvince, 
-      type,
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined
-    });
-  };
+  const availableMunicipalities = province 
+    ? (MUNICIPALITIES_MOCK[province] || MUNICIPALITIES_MOCK['Default']) 
+    : [];
 
   return (
-    <div className="relative bg-gray-900 text-white overflow-hidden">
-      {/* Background Image Overlay - Authentic Luanda Marginal / Coastal City Night Vibe */}
+    <div className="relative bg-gray-900 text-white overflow-hidden pb-16">
+      {/* Background Image Overlay */}
       <div className="absolute inset-0">
         <img 
-          src="https://images.unsplash.com/photo-1519999482648-25049ddd37b1?auto=format&fit=crop&w=1920&q=80" 
-          alt="Angola Real Estate Skyline" 
-          className="w-full h-full object-cover opacity-60"
+          src="https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=1920&q=80" 
+          alt="Angola Real Estate" 
+          className="w-full h-full object-cover opacity-40"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-900/60 via-gray-900/40 to-gray-900/90"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-900/40 via-gray-900/60 to-gray-900"></div>
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-32 flex flex-col items-center text-center">
-        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 drop-shadow-lg">
-          Encontre o seu lugar <br/> <span className="text-brand-500">ideal em Angola.</span>
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32 flex flex-col items-center text-center">
+        
+        {/* Headlines */}
+        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 drop-shadow-xl animate-fadeIn">
+          Encontre o seu imóvel ideal em <span className="text-brand-500">Angola</span>
         </h1>
-        <p className="text-lg md:text-xl text-gray-200 max-w-2xl mb-10 drop-shadow-md">
-          De Cabinda ao Cunene. Mais segurança, menos intermediários. 
-          Use o <span className="text-brand-400 font-semibold">Arrendaki</span> com Transação Garantida.
+        
+        <p className="text-lg md:text-xl text-gray-200 max-w-3xl mb-12 drop-shadow-md font-light animate-fadeIn">
+          A plataforma mais segura para comprar, vender e arrendar. <br className="hidden md:block" />
+          Sem intermediários, com transação garantida e verificação documental.
         </p>
 
-        {/* Search Box - Responsive Design */}
-        <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl p-4 flex flex-col lg:flex-row gap-4 lg:gap-0 items-center">
+        {/* Search Box */}
+        <div id="search-container" className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl p-2 md:p-3 flex flex-col lg:flex-row gap-2 lg:gap-0 items-center transform transition-all hover:scale-[1.01] duration-300 animate-fadeIn">
           
-          {/* Location Input */}
-          <div className="w-full lg:flex-1 relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <MapPin className="h-5 w-5 text-gray-400 group-focus-within:text-brand-500 transition-colors" />
-            </div>
+          <div className="w-full lg:flex-1 relative group border-b lg:border-b-0 lg:border-r border-gray-100">
+            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-brand-500 transition-colors" />
             <select
               value={province}
-              onChange={(e) => setProvince(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 border-none rounded-md bg-transparent appearance-none truncate cursor-pointer"
+              onChange={(e) => { setProvince(e.target.value); setMunicipality(''); }}
+              className="block w-full pl-12 pr-4 py-4 text-gray-900 bg-transparent focus:ring-0 focus:outline-none font-medium appearance-none cursor-pointer"
             >
-              <option value="">Todas as Províncias</option>
-              {PROVINCES.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
+              <option value="">Província</option>
+              {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
 
-          {/* Divider */}
-          <div className="w-full h-px lg:w-px lg:h-12 bg-gray-200 lg:mx-2"></div>
+          <div className="w-full lg:flex-1 relative group border-b lg:border-b-0 lg:border-r border-gray-100">
+            <Navigation className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 transition-colors ${!province ? 'text-gray-300' : 'text-gray-400 group-focus-within:text-brand-500'}`} />
+            <select
+              value={municipality}
+              onChange={(e) => setMunicipality(e.target.value)}
+              disabled={!province}
+              className={`block w-full pl-12 pr-4 py-4 text-gray-900 bg-transparent focus:ring-0 focus:outline-none font-medium appearance-none cursor-pointer ${!province ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <option value="">Município</option>
+              {availableMunicipalities.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
 
-          {/* Type Input */}
-          <div className="w-full lg:flex-1 relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Home className="h-5 w-5 text-gray-400 group-focus-within:text-brand-500 transition-colors" />
-            </div>
+          <div className="w-full lg:flex-1 relative group border-b lg:border-b-0 lg:border-r border-gray-100">
+            <Home className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-brand-500 transition-colors" />
              <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 border-none rounded-md bg-transparent appearance-none truncate cursor-pointer"
+              className="block w-full pl-12 pr-4 py-4 text-gray-900 bg-transparent focus:ring-0 focus:outline-none font-medium appearance-none cursor-pointer"
             >
-              <option value="">Tipo de Imóvel</option>
+              <option value="">Tipo</option>
               <option value="Apartamento">Apartamento</option>
               <option value="Vivenda">Vivenda</option>
               <option value="Escritório">Escritório</option>
@@ -98,72 +125,78 @@ const Hero: React.FC<HeroProps> = ({ onSearch }) => {
             </select>
           </div>
 
-          {/* Divider */}
-          <div className="w-full h-px lg:w-px lg:h-12 bg-gray-200 lg:mx-2"></div>
-
-          {/* Price Range Inputs */}
-          <div className="w-full lg:flex-[1.5] relative flex items-center group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-               <Banknote className="h-5 w-5 text-gray-400 group-focus-within:text-brand-500 transition-colors" />
-            </div>
-            <div className="flex items-center w-full pl-10 space-x-2">
+          <div className="w-full lg:flex-[1.2] relative flex items-center group px-4 py-2 lg:py-0">
+            <Banknote className="h-5 w-5 text-gray-400 mr-2 flex-shrink-0" />
+            <div className="flex items-center w-full space-x-2">
                 <input
                   type="number"
-                  placeholder="Min Kz"
+                  placeholder="Min"
                   value={minPrice}
                   onChange={(e) => setMinPrice(e.target.value)}
-                  className="w-1/2 py-3 text-gray-900 placeholder-gray-500 focus:outline-none bg-transparent appearance-none text-sm"
+                  className="w-full py-2 bg-transparent focus:outline-none text-gray-900 placeholder-gray-400 font-medium"
                 />
-                <span className="text-gray-400">-</span>
+                <span className="text-gray-300">-</span>
                 <input
                   type="number"
-                  placeholder="Máx Kz"
+                  placeholder="Max (Kz)"
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
-                  className="w-1/2 py-3 text-gray-900 placeholder-gray-500 focus:outline-none bg-transparent appearance-none text-sm"
+                  className="w-full py-2 bg-transparent focus:outline-none text-gray-900 placeholder-gray-400 font-medium"
                 />
             </div>
           </div>
 
-          {/* Search Button */}
           <button 
-            onClick={handleSearch}
-            className="w-full lg:w-auto bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 px-8 rounded-xl transition-all duration-200 flex items-center justify-center whitespace-nowrap shadow-lg hover:shadow-brand-500/30 transform hover:-translate-y-0.5 mt-2 lg:mt-0 lg:ml-2"
+            onClick={handleManualSearch}
+            className="w-full lg:w-auto bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-10 rounded-xl lg:rounded-l-none lg:rounded-r-xl transition-all shadow-lg flex items-center justify-center whitespace-nowrap mt-2 lg:mt-0"
           >
             <Search className="h-5 w-5 mr-2" />
             Pesquisar
           </button>
         </div>
 
-        {/* Quick Filters */}
-        <div className="mt-8 flex flex-wrap justify-center items-center gap-3 animate-fadeIn">
-            <span className="text-gray-300 text-sm font-medium">Procurar em:</span>
-            {QUICK_PROVINCES.map((p) => (
-                <button
-                    key={p}
-                    onClick={() => handleQuickFilter(p)}
-                    className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-all duration-300 backdrop-blur-sm shadow-sm ${
-                        province === p 
-                        ? 'bg-brand-500 border-brand-500 text-white' 
-                        : 'bg-white/10 border-white/20 text-white hover:bg-brand-500 hover:border-brand-500'
-                    }`}
+        {/* Quick Tags */}
+        <div className="mt-10 flex flex-wrap justify-center gap-3 animate-fadeIn">
+            {['Luanda Centro', 'Talatona', 'Kilamba', 'Benguela', 'Viana'].map(tag => (
+                <button 
+                    key={tag}
+                    onClick={() => {
+                        // Simple quick action simulation
+                        const el = document.getElementById('property-list');
+                        el?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-1.5 rounded-full text-sm font-medium backdrop-blur-sm transition-colors"
                 >
-                    {p}
+                    {tag}
                 </button>
             ))}
         </div>
 
-        {/* Badges */}
-        <div className="mt-10 flex flex-wrap justify-center gap-4 text-sm text-gray-300 font-medium">
-            <div className="flex items-center bg-gray-900/50 backdrop-blur-md px-4 py-2 rounded-full border border-gray-700">
-                <ShieldCheck className="w-4 h-4 text-green-400 mr-2" />
-                Transação Segura (Escrow)
+        {/* Trust Indicators */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-center w-full max-w-4xl animate-fadeIn delay-100">
+            <div className="flex flex-col items-center group">
+                <div className="bg-brand-500/20 p-3 rounded-full mb-3 group-hover:bg-brand-500/30 transition-colors">
+                    <CheckCircle className="w-6 h-6 text-brand-500" />
+                </div>
+                <h3 className="font-bold text-lg">Verificação Kiá</h3>
+                <p className="text-sm text-gray-400">Todos os proprietários e imóveis são validados manualmente.</p>
             </div>
-             <div className="flex items-center bg-gray-900/50 backdrop-blur-md px-4 py-2 rounded-full border border-gray-700">
-                <CheckCircle className="w-4 h-4 text-blue-400 mr-2" />
-                Kiá Verify
+            <div className="flex flex-col items-center group">
+                <div className="bg-blue-500/20 p-3 rounded-full mb-3 group-hover:bg-blue-500/30 transition-colors">
+                    <Banknote className="w-6 h-6 text-blue-500" />
+                </div>
+                <h3 className="font-bold text-lg">Pagamento Seguro</h3>
+                <p className="text-sm text-gray-400">O seu dinheiro fica protegido até receber as chaves (Escrow).</p>
+            </div>
+            <div className="flex flex-col items-center group">
+                <div className="bg-green-500/20 p-3 rounded-full mb-3 group-hover:bg-green-500/30 transition-colors">
+                    <Navigation className="w-6 h-6 text-green-500" />
+                </div>
+                <h3 className="font-bold text-lg">Visitas Agendadas</h3>
+                <p className="text-sm text-gray-400">Marque visitas reais com proprietários verificados.</p>
             </div>
         </div>
+
       </div>
     </div>
   );

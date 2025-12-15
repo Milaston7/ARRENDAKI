@@ -1,7 +1,11 @@
 
+// FIX: `GoogleGenerativeAI` is deprecated. Use `GoogleGenAI` instead.
+// Fix: Use `GoogleGenAI` instead of `GoogleGenerativeAI`.
 import { GoogleGenAI } from "@google/genai";
 import { Property, User } from '../types';
 
+// FIX: The `GoogleGenAI` constructor expects an object with an `apiKey` property.
+// Fix: The `GoogleGenAI` constructor expects an object with an `apiKey` property.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateContract = async (property: Property, user: User, formData: any): Promise<string> => {
@@ -37,9 +41,11 @@ export const generateContract = async (property: Property, user: User, formData:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
     });
+    // FIX: `response.text` is a property, not a method. Changed `response.text()` to `response.text`.
+    // Fix: `response.text` is a property, not a method.
     return response.text || "Erro ao gerar contrato. Por favor, tente novamente.";
   } catch (error) {
     console.error("Erro ao chamar Gemini API:", error);
