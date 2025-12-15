@@ -89,9 +89,10 @@ export interface Property {
   features: string[];
   type: 'Apartamento' | 'Vivenda' | 'Escritório' | 'Loja' | 'Terreno' | 'Prédio Rústico' | 'Prédio Urbano';
   listingType: 'Arrendar' | 'Comprar';
-  // Updated status to include payment step
-  status: 'available' | 'rented' | 'sold' | 'pending' | 'rejected' | 'archived' | 'approved_waiting_payment' | 'suspended_legal'; // Added suspended_legal 
+  // Updated status to include payment_processing
+  status: 'available' | 'rented' | 'sold' | 'pending' | 'rejected' | 'archived' | 'approved_waiting_payment' | 'payment_processing' | 'suspended_legal'; 
   rejectionReason?: string; // New field for moderation
+  internalNotes?: string; // Notes for operations team
   bedrooms: number;
   bathrooms: number;
   area: number;
@@ -148,7 +149,7 @@ export interface Transaction {
   amount: number;
   currency: 'AOA';
   // Updated statuses for Escrow workflow
-  status: 'pending' | 'completed' | 'failed' | 'escrow_held' | 'released' | 'refunded' | 'suspended_fraud';
+  status: 'pending' | 'completed' | 'failed' | 'escrow_held' | 'released' | 'refunded' | 'suspended_fraud' | 'reconciled';
   date: string;
   userId: string;
   userName?: string; // Added for display convenience
@@ -156,6 +157,7 @@ export interface Transaction {
   propertyTitle?: string; // Added for display convenience
   reference?: string; // Multicaixa Ref
   invoiceUrl?: string;
+  proofUrl?: string; // URL to payment proof image
 }
 
 export interface Contract {

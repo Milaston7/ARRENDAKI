@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { User, PlusCircle, MessageSquare, Menu, X, Settings, LayoutDashboard, BookOpen, Info, Activity } from 'lucide-react';
+import { User, PlusCircle, MessageSquare, Menu, X, Settings, LayoutDashboard, BookOpen, Info, Activity, ShieldAlert } from 'lucide-react';
 import { User as UserType } from '../types';
 import Logo from './Logo';
 
@@ -23,6 +22,9 @@ const Navbar: React.FC<NavbarProps> = ({ user, onNavigate, onLoginClick, onLogou
     }`;
 
   const isInternal = user?.group === 'internal';
+
+  // Helper to check if user can list properties
+  const canListProperties = user && (user.role === 'owner' || user.role === 'broker' || user.role === 'legal_rep');
 
   return (
     <nav className="bg-white shadow-sm sticky top-0 z-50">
@@ -63,7 +65,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onNavigate, onLoginClick, onLogou
                   <span>Blog</span>
                 </button>
                 
-                {(user?.role === 'owner' || user?.role === 'broker' || user?.role === 'legal_rep') && (
+                {canListProperties && (
                   <button onClick={() => onNavigate('add-property')} className={navItemClass('add-property')}>
                     <PlusCircle className="h-4 w-4" />
                     <span>Anunciar Imóvel</span>
@@ -122,13 +124,23 @@ const Navbar: React.FC<NavbarProps> = ({ user, onNavigate, onLoginClick, onLogou
                 </button>
               </div>
             ) : (
-              <button 
-                onClick={onLoginClick}
-                className="ml-4 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm flex items-center"
-              >
-                <User className="h-4 w-4 mr-2" />
-                Entrar / Registar
-              </button>
+              <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => onNavigate('staff_login')}
+                    className="text-gray-400 hover:text-gray-600 px-3 py-2 rounded-md text-xs font-bold transition-colors flex items-center uppercase tracking-wide mr-2"
+                    title="Acesso Corporativo"
+                  >
+                    <ShieldAlert className="h-3 w-3 mr-1" />
+                    Staff
+                  </button>
+                  <button 
+                    onClick={onLoginClick}
+                    className="ml-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm flex items-center"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Entrar / Registar
+                  </button>
+              </div>
             )}
           </div>
 
@@ -163,7 +175,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onNavigate, onLoginClick, onLogou
                  <button onClick={() => {onNavigate('blog'); setIsMenuOpen(false)}} className={`w-full text-left ${navItemClass('blog')}`}>
                   Blog
                 </button>
-                {(user?.role === 'owner' || user?.role === 'broker' || user?.role === 'legal_rep') && (
+                {canListProperties && (
                   <button onClick={() => {onNavigate('add-property'); setIsMenuOpen(false)}} className={`w-full text-left ${navItemClass('add-property')}`}>
                     Anunciar Imóvel
                   </button>
@@ -188,9 +200,15 @@ const Navbar: React.FC<NavbarProps> = ({ user, onNavigate, onLoginClick, onLogou
           )}
 
           {!user && (
-            <button onClick={() => {onLoginClick(); setIsMenuOpen(false)}} className="w-full text-left px-3 py-2 text-brand-600 font-bold">
-              Entrar / Registar
-            </button>
+            <>
+                <button onClick={() => {onLoginClick(); setIsMenuOpen(false)}} className="w-full text-left px-3 py-2 text-brand-600 font-bold">
+                Entrar / Registar
+                </button>
+                <button onClick={() => {onNavigate('staff_login'); setIsMenuOpen(false)}} className="w-full text-left px-3 py-2 text-gray-500 font-bold text-sm flex items-center border-t border-gray-100 mt-2 pt-3">
+                    <ShieldAlert className="h-4 w-4 mr-2" />
+                    Acesso Administrativo (Staff)
+                </button>
+            </>
           )}
            {user && (
             <button onClick={() => {onLogout(); setIsMenuOpen(false)}} className="w-full text-left px-3 py-2 text-red-600 font-bold">

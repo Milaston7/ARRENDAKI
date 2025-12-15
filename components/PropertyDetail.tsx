@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, MapPin, ExternalLink, ChevronLeft, ChevronRight, 
@@ -417,7 +416,7 @@ const PropertyDetail: React.FC<PropertyDetailProps> = ({
                               onClick={() => setViewingContract(existingContract)}
                               className="w-full bg-white border border-blue-300 text-blue-700 font-bold py-2 rounded-lg text-sm hover:bg-blue-50 transition-colors flex items-center justify-center"
                           >
-                              <Eye className="w-4 h-4 mr-2" /> Ver Contrato Original
+                              <Eye className="w-4 h-4 mr-2" /> Visualizar Contrato Kiá
                           </button>
                       </div>
                    )}
