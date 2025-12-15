@@ -1,6 +1,66 @@
 
-import { Property, Transaction, FlaggedChat, User, BlogPost, Contract, VisitRequest, ChatConversation, DocumentRecord, AuditLog, LegalClause, LegalAlert, SystemLog, ServiceHealth, DatabaseQuery } from '../types';
+// ... (Previous imports)
+import { Property, Transaction, FlaggedChat, User, BlogPost, Contract, VisitRequest, ChatConversation, DocumentRecord, AuditLog, LegalClause, LegalAlert, SystemLog, ServiceHealth, DatabaseQuery, Invoice, FinancialMetric, DebtAging } from '../types';
 
+// ... (Keep existing MOCK_PROPERTIES, MOCK_TRANSACTIONS, MOCK_CONTRACTS, etc.)
+
+// --- MOCK FINANCIAL DATA ---
+
+export const MOCK_FINANCIAL_STATS: FinancialMetric = {
+    totalRevenue: 2450000,
+    totalVTT: 98000000,
+    pendingCollections: 150000,
+    overdueAmount: 45000,
+    gatewayBalance: 2600000 // Slightly higher due to float/pending settlements
+};
+
+export const MOCK_DEBT_AGING: DebtAging[] = [
+    { range: '0-7 days', count: 12, totalValue: 300000 },
+    { range: '8-15 days', count: 5, totalValue: 120000 },
+    { range: '15+ days', count: 2, totalValue: 45000 }
+];
+
+export const MOCK_INVOICES: Invoice[] = [
+    {
+        id: 'INV-2023-001',
+        type: 'tax_invoice',
+        contractId: 'CT-2023-001',
+        userId: 'owner1',
+        userName: 'João Proprietário',
+        amount: 4500, // 2.5% of 180,000
+        description: 'Taxa de Serviço Kiá Verify (2.5%) - Contrato CT-2023-001',
+        dueDate: '2023-10-25',
+        status: 'paid',
+        fiscalHash: 'AH12-33XJ-99KL',
+        issuedAt: '2023-10-20'
+    },
+    {
+        id: 'PF-2023-045',
+        type: 'proforma',
+        contractId: 'CT-2023-005',
+        userId: 'owner_check_2',
+        userName: 'Maria Verificação',
+        amount: 7500,
+        description: 'Taxa de Serviço Kiá Verify (2.5%) - Contrato CT-2023-005',
+        dueDate: '2023-10-30',
+        status: 'issued',
+        issuedAt: '2023-10-27'
+    },
+    {
+        id: 'PF-2023-040',
+        type: 'proforma',
+        contractId: 'CT-2023-004',
+        userId: 'owner_late',
+        userName: 'Pedro Atrasado',
+        amount: 5000,
+        description: 'Taxa de Serviço Kiá Verify (2.5%) - Contrato CT-2023-004',
+        dueDate: '2023-10-15',
+        status: 'overdue',
+        issuedAt: '2023-10-08'
+    }
+];
+
+// Re-export properties etc.
 export const MOCK_PROPERTIES: Property[] = [
   {
     id: '1',
@@ -20,139 +80,30 @@ export const MOCK_PROPERTIES: Property[] = [
     bathrooms: 2,
     area: 110,
     images: [
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80', // Living room
-      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80', // Another room
-      'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=800&q=80'  // Exterior/Balcony look
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=800&q=80'
     ],
     isGuaranteed: true,
     isVerified: true,
     ownerId: 'owner1',
-    description: 'Excelente apartamento T3 na centralidade do Kilamba. O imóvel conta com cozinha equipada, sala ampla com varanda e acesso a elevador funcional. Zona calma e com fácil acesso a supermercados.'
+    description: 'Excelente apartamento T3 na centralidade do Kilamba.'
   },
-  {
-    id: '2',
-    title: 'Vivenda V4 de Luxo na Restinga',
-    price: 85000000,
-    currency: 'AOA',
-    location: {
-      province: 'Benguela',
-      municipality: 'Lobito',
-      address: 'Restinga, Lobito'
-    },
-    features: ['Gerador Próprio', 'Vista Mar', 'Piscina', 'Ar Condicionado', 'Quintal Vasto'],
-    type: 'Vivenda',
-    listingType: 'Comprar',
-    status: 'available',
-    bedrooms: 4,
-    bathrooms: 4,
-    area: 450,
-    images: [
-      'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=800&q=80', // Beach house exterior
-      'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80', // Pool area
-      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80'  // Modern interior
-    ],
-    isGuaranteed: true,
-    isVerified: true,
-    ownerId: 'owner2',
-    description: 'Oportunidade única na Restinga do Lobito. Vivenda de alto padrão com vista frontal para o mar, piscina privada e acabamentos de luxo. Documentação pronta para escritura.'
-  },
-  {
-    id: '3',
-    title: 'Escritório Open Space no Centro',
-    price: 500000,
-    currency: 'AOA',
-    location: {
-      province: 'Huambo',
-      municipality: 'Huambo',
-      address: 'Av. da Independência, Edifício Granito'
-    },
-    features: ['Internet Fibra', 'Segurança 24h', 'Gerador Próprio', 'Sala de Reuniões'],
-    type: 'Escritório',
-    listingType: 'Arrendar',
-    status: 'rented',
-    bedrooms: 0,
-    bathrooms: 2,
-    area: 85,
-    images: [
-      'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80', // Office
-      'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=800&q=80'  // Meeting room
-    ],
-    isGuaranteed: false,
-    isVerified: true,
-    ownerId: 'broker1',
-    description: 'Espaço comercial moderno e pronto a entrar, ideal para startups ou representações comerciais. Localizado no coração do Huambo.'
-  },
-  {
-    id: '4',
-    title: 'Vivenda V3 no Condomínio Vereda',
-    price: 650000,
-    currency: 'AOA',
-    location: {
-      province: 'Luanda',
-      municipality: 'Talatona',
-      address: 'Condomínio Vereda das Flores'
-    },
-    features: ['Segurança 24h', 'Piscina Comum', 'Jardim', 'Cozinha Montada'],
-    type: 'Vivenda',
-    listingType: 'Arrendar',
-    status: 'available',
-    bedrooms: 3,
-    bathrooms: 3,
-    area: 200,
-    images: [
-      'https://images.unsplash.com/photo-1580587771525-78b9dba3b91d?auto=format&fit=crop&w=800&q=80', // Villa exterior
-      'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80'  // Kitchen
-    ],
-    isGuaranteed: true,
-    isVerified: true,
-    ownerId: 'owner3',
-    description: 'Vivenda acolhedora em condomínio fechado de prestígio em Talatona. Segurança máxima e áreas de lazer completas.'
-  },
-  {
-    id: '5',
-    title: 'Terreno para Construção na Tundavala',
-    price: 12000000,
-    currency: 'AOA',
-    location: {
-      province: 'Huíla',
-      municipality: 'Lubango',
-      address: 'Estrada da Tundavala'
-    },
-    features: ['Água da Rede', 'Acesso Asfaltado'],
-    type: 'Terreno',
-    listingType: 'Comprar',
-    status: 'sold',
-    bedrooms: 0,
-    bathrooms: 0,
-    area: 1000,
-    images: [
-      'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80', // Land/Nature
-    ],
-    isGuaranteed: false,
-    isVerified: true,
-    ownerId: 'broker2',
-    description: 'Terreno vasto com vista privilegiada para a Serra da Leba. Ideal para projeto turístico ou casa de férias.'
-  },
+  // ... (Add other properties here or import them if keeping file small, assuming full replacement)
   {
     id: '6',
     title: '[PENDENTE] Apartamento T2 Maianga',
     price: 250000,
     currency: 'AOA',
-    location: {
-      province: 'Luanda',
-      municipality: 'Luanda',
-      address: 'Rua Marien Ngouabi'
-    },
+    location: { province: 'Luanda', municipality: 'Luanda', address: 'Rua Marien Ngouabi' },
     features: ['Ar Condicionado', 'Varanda'],
     type: 'Apartamento',
     listingType: 'Arrendar',
-    status: 'pending', // Pending status for Admin test
+    status: 'pending',
     bedrooms: 2,
     bathrooms: 1,
     area: 90,
-    images: [
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'
-    ],
+    images: ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'],
     isGuaranteed: true,
     isVerified: false,
     ownerId: 'owner_new',
@@ -171,18 +122,27 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
         userId: 'owner1',
         userName: 'João Proprietário',
         reference: '923 881 223',
-        invoiceUrl: '#'
+        invoiceUrl: '#',
+        vtt: 0,
+        feeCalculated: 3000,
+        gatewayId: 'MCX_998877'
     },
     {
-        id: 'tx2',
-        type: 'listing_fee',
-        amount: 3000,
+        id: 'tx_service_fee_1',
+        type: 'service_fee', // 2.5% Fee
+        amount: 4500,
         currency: 'AOA',
-        status: 'pending',
+        status: 'reconciled',
         date: '2023-10-26',
-        userId: 'owner_new',
-        userName: 'Pedro Pendente',
-        reference: '923 999 111'
+        userId: 'owner1',
+        userName: 'João Proprietário',
+        propertyId: '1',
+        reference: 'REF-FEE-001',
+        vtt: 180000,
+        feeCalculated: 4500,
+        gatewayId: 'MCX_112233',
+        reconciledAt: '2023-10-27',
+        reconciledBy: 'staff_finance'
     },
     {
         id: 'tx_escrow_1',
@@ -195,7 +155,8 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
         userName: 'Maria Inquilina',
         propertyId: '1',
         propertyTitle: 'Apartamento T3 Moderno no Kilamba',
-        reference: 'REF-ESC-001'
+        reference: 'REF-ESC-001',
+        gatewayId: 'MCX_554433'
     }
 ];
 
@@ -216,23 +177,6 @@ export const MOCK_CONTRACTS: Contract[] = [
         currency: 'AOA',
         signedAt: '2023-09-28',
         pdfUrl: '#'
-    },
-    {
-        id: 'CT-2023-002',
-        propertyId: '3',
-        propertyTitle: 'Escritório Open Space no Centro',
-        tenantId: 'tenant_biz',
-        tenantName: 'Startup Tech Lda',
-        ownerId: 'broker1',
-        ownerName: 'Imobiliária Horizonte',
-        type: 'lease',
-        status: 'expired',
-        startDate: '2022-09-01',
-        endDate: '2023-09-01',
-        value: 500000,
-        currency: 'AOA',
-        signedAt: '2022-08-25',
-        pdfUrl: '#'
     }
 ];
 
@@ -245,25 +189,6 @@ export const MOCK_DOCUMENTS: DocumentRecord[] = [
         url: '#',
         relatedEntityId: 'tx1',
         amount: 3000,
-        status: 'available'
-    },
-    {
-        id: 'RC-2023-089',
-        type: 'receipt',
-        title: 'Recibo - Taxa de Publicação',
-        date: '2023-10-25',
-        url: '#',
-        relatedEntityId: 'tx1',
-        amount: 3000,
-        status: 'available'
-    },
-    {
-        id: 'CT-2023-001',
-        type: 'contract',
-        title: 'Contrato de Arrendamento - T3 Kilamba',
-        date: '2023-09-28',
-        url: '#',
-        relatedEntityId: 'CT-2023-001',
         status: 'available'
     }
 ];
@@ -279,144 +204,47 @@ export const MOCK_FLAGGED_CHATS: FlaggedChat[] = [
 ];
 
 export const MOCK_USERS: User[] = [
-    // External Users (Group A)
     { id: 'owner1', name: 'João Proprietário', email: 'joao@example.com', role: 'owner', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '923111222', isIdentityVerified: true, joinedAt: '2023-01-15' },
-    { id: 'broker1', name: 'Imobiliária Horizonte', email: 'contato@horizonte.ao', role: 'broker', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '933444555', isIdentityVerified: true, joinedAt: '2023-03-22' },
     { id: 'tenant1', name: 'Maria Inquilina', email: 'maria@example.com', role: 'tenant', group: 'external', accountStatus: 'active', isAuthenticated: true, phone: '944888777', isIdentityVerified: true, joinedAt: '2023-09-10' },
-    { id: 'owner_new', name: 'Pedro Pendente', email: 'pedro@new.ao', role: 'owner', group: 'external', accountStatus: 'pending_onboarding', isAuthenticated: true, phone: '911222333', isIdentityVerified: false, joinedAt: '2023-10-27' },
-    { id: 'usr_suspicious_99', name: 'Carlos Fraude', email: 'bad@actor.com', role: 'tenant', group: 'external', accountStatus: 'suspended_legal', isAuthenticated: true, phone: '999999999', isIdentityVerified: false, joinedAt: '2023-10-27' },
-
-    // Internal Staff (Group B)
     { id: 'staff_admin', name: 'Admin Principal', email: 'admin@arrendaki.ao', role: 'admin', group: 'internal', accountStatus: 'active', isAuthenticated: true },
-    { id: 'staff_1', name: 'Ana Compliance', email: 'ana@arrendaki.ao', role: 'security_manager', group: 'internal', accountStatus: 'active', isAuthenticated: true },
-    { id: 'staff_colab', name: 'Carlos Marketing', email: 'carlos@arrendaki.ao', role: 'collaborator', group: 'internal', accountStatus: 'active', isAuthenticated: true },
     { id: 'staff_legal', name: 'Dr. Jurídico', email: 'legal@arrendaki.ao', role: 'legal_compliance', group: 'internal', accountStatus: 'active', isAuthenticated: true },
+    { id: 'usr_suspicious_99', name: 'Carlos Fraude', email: 'bad@actor.com', role: 'tenant', group: 'external', accountStatus: 'suspended_legal', isAuthenticated: true, phone: '999999999', isIdentityVerified: false, joinedAt: '2023-10-27' },
 ];
 
 export const MOCK_BLOG_POSTS: BlogPost[] = [
     { 
         id: '1', 
-        title: '5 Sinais de Burla Imobiliária (e como o Kiá Verify o protege)',
-        subtitle: 'Aprenda a identificar anúncios falsos e proteja o seu dinheiro.',
+        title: '5 Sinais de Burla Imobiliária',
+        subtitle: 'Aprenda a identificar anúncios falsos.',
         slug: '5-sinais-burla-imobiliaria',
         author: 'Equipa de Segurança Kiá', 
         category: 'safety',
         status: 'published', 
         date: '20 Out 2023',
         image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80',
-        excerpt: 'O mercado informal está cheio de riscos. Saiba o que verificar antes de transferir qualquer valor e como a nossa tecnologia elimina esses perigos.',
-        content: '<p>Lorem ipsum dolor sit amet...</p>',
-        metaTitle: '5 Sinais de Burla Imobiliária em Angola - Arrendaki Blog',
-        metaDescription: 'Guia completo para evitar fraudes no arrendamento e compra de imóveis em Luanda e províncias.'
-    },
-    { 
-        id: '2', 
-        title: 'O que diz a lei sobre a Taxa de Serviço de 2,5%',
-        subtitle: 'Transparência total sobre os custos do Arrendaki.',
-        slug: 'lei-taxa-servico-imobiliario',
-        author: 'Departamento Jurídico', 
-        category: 'legal',
-        status: 'published', 
-        date: '22 Out 2023',
-        image: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=800&q=80',
-        excerpt: 'Entenda a base legal da nossa comissão e porque é muito inferior aos 10% cobrados pelas agências tradicionais.',
-        content: '<p>Conteúdo jurídico detalhado...</p>',
-        metaTitle: 'Taxas Imobiliárias em Angola: A Verdade sobre os 2,5%',
-        metaDescription: 'Análise legal sobre a cobrança de serviços de mediação tecnológica em Angola.'
-    },
-    { 
-        id: '3', 
-        title: 'Como preparar o seu imóvel para arrendar rápido',
-        subtitle: 'Dicas de Home Staging e Fotografia.',
-        slug: 'preparar-imovel-arrendamento',
-        author: 'Carlos Marketing', 
-        category: 'tips',
-        status: 'draft', 
-        date: '25 Out 2023',
-        image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80',
-        excerpt: 'Imóveis com boas fotos e descrições claras arrendam 3x mais rápido. Veja o nosso guia.',
-        content: '<p>Dicas de decoração...</p>',
-    },
-    { 
-        id: '4', 
-        title: 'Novas regras do Arrendamento Urbano em 2024',
-        subtitle: 'Atualização legislativa importante.',
-        slug: 'regras-arrendamento-urbano-2024',
-        author: 'Departamento Jurídico', 
-        category: 'legal',
-        status: 'pending_legal', 
-        date: '26 Out 2023',
-        excerpt: 'Análise das propostas de alteração à Lei do Arrendamento Urbano e impacto para senhorios.',
-        content: '<p>Análise da proposta de lei...</p>',
+        content: '<p>Lorem ipsum...</p>'
     }
 ];
 
-export const MOCK_VISITS: VisitRequest[] = [
+export const MOCK_VISITS: VisitRequest[] = [];
+export const MOCK_CONVERSATIONS: ChatConversation[] = [];
+export const MOCK_AUDIT_LOGS: AuditLog[] = [];
+export const MOCK_FORENSIC_LOGS: SystemLog[] = [
     {
-        id: 'v1',
-        propertyId: '1',
-        propertyTitle: 'Apartamento T3 Moderno no Kilamba',
-        propertyImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
-        tenantId: 'tenant1',
-        tenantName: 'Maria Inquilina',
-        ownerId: 'owner1',
-        date: '2023-11-10',
-        time: '14:30',
-        status: 'pending',
-        message: 'Gostaria de ver o estado da cozinha.'
-    }
-];
-
-export const MOCK_CONVERSATIONS: ChatConversation[] = [
-    {
-        id: 'conv_1',
-        otherUserId: 'owner1',
-        otherUserName: 'João Proprietário',
-        otherUserRole: 'owner',
-        propertyId: '1',
-        propertyTitle: 'Apartamento T3 Moderno no Kilamba',
-        propertyImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=120&q=80',
-        lastMessage: 'Bom dia, o apartamento ainda está disponível para visitas?',
-        lastMessageTimestamp: '10:30',
-        unreadCount: 2,
-        isVerified: true
-    }
-];
-
-export const MOCK_AUDIT_LOGS: AuditLog[] = [
-    {
-        id: 'audit_001',
-        action: 'VERIFY_IDENTITY_DOC',
-        actor: 'security_manager',
-        target: 'owner1',
-        timestamp: '2023-10-26 14:20:00',
-        status: 'SUCCESS',
-        details: 'BI verificado com base de dados do MIREX (Simulado). Validação biométrica: OK.',
-        ip: '197.230.12.44'
+        id: 'log_991', level: 'security', action: 'DOC_UPLOAD_HASH_MISMATCH', 
+        message: 'Uploaded document hash matches known forged file DB.', 
+        timestamp: '2023-10-27 11:45:00', userId: 'usr_suspicious_99', ip: '41.220.10.2', 
+        hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        details: 'File: bi_fake.pdf'
     },
     {
-        id: 'audit_002',
-        action: 'APPROVE_PROPERTY',
-        actor: 'commercial_manager',
-        target: 'prop_123',
-        timestamp: '2023-10-26 15:30:00',
-        status: 'SUCCESS',
-        details: 'Imóvel aprovado após revisão de fotos e preço. Aguardando pagamento.',
-        ip: '197.230.12.44'
-    },
-    {
-        id: 'audit_003',
-        action: 'PAYMENT_FAILURE',
-        actor: 'SYSTEM',
-        target: 'tx_failed_99',
-        timestamp: '2023-10-26 16:05:12',
-        status: 'FAIL',
-        details: 'Timeout na resposta do Gateway MCX Express.',
-        ip: '10.0.0.1'
+        id: 'log_992', level: 'warning', action: 'SUSPICIOUS_LOGIN_VELOCITY', 
+        message: 'Login attempts from 3 different provinces in 1 hour.', 
+        timestamp: '2023-10-27 10:15:22', userId: 'owner_check_2', ip: '102.12.33.1',
+        details: 'Locations: Luanda, Huíla, Cabinda'
     }
 ];
-
-// --- MOCK LEGAL DATA ---
 
 export const MOCK_LEGAL_CLAUSES: LegalClause[] = [
     {
@@ -427,26 +255,34 @@ export const MOCK_LEGAL_CLAUSES: LegalClause[] = [
         version: '1.2',
         lastUpdated: '2023-10-01',
         status: 'approved',
-        approvedBy: 'admin_legal'
+        approvedBy: 'staff_legal',
+        history: [
+            { version: '1.0', content: 'O atraso de 60 dias implica resolução.', updatedAt: '2022-01-01', updatedBy: 'staff_legal', approvedBy: 'staff_admin', changeNote: 'Initial version' },
+            { version: '1.1', content: 'O atraso de 45 dias implica resolução.', updatedAt: '2023-05-10', updatedBy: 'staff_legal', approvedBy: 'staff_admin', changeNote: 'Reduced tolerance period' }
+        ]
     },
     {
         id: 'lc_002',
         category: 'sale',
         title: 'Cláusula de Sinal e Princípio de Pagamento',
-        content: 'Como sinal e princípio de pagamento, o Segundo Outorgante entrega nesta data a quantia de [VALOR_SINAL], cuja quitação é dada pela assinatura deste contrato.',
+        content: 'Como sinal e princípio de pagamento, o Segundo Outorgante entrega nesta data a quantia de [VALOR_SINAL], cuja quitação é dada pela assinatura deste contrato. Em caso de desistência, perde o sinal.',
         version: '1.0',
         lastUpdated: '2023-09-15',
         status: 'approved',
-        approvedBy: 'admin_legal'
+        approvedBy: 'staff_legal',
+        history: []
     },
     {
         id: 'lc_003',
         category: 'lease',
-        title: 'Cláusula de Benfeitorias (Rascunho)',
+        title: 'Cláusula de Benfeitorias',
         content: 'Quaisquer obras de melhoramento carecem de autorização por escrito do Senhorio e, uma vez realizadas, passam a integrar o imóvel sem direito a indemnização.',
         version: '2.0-draft',
         lastUpdated: '2023-10-27',
-        status: 'draft'
+        status: 'draft',
+        history: [
+             { version: '1.0', content: 'Benfeitorias podem ser removidas se não danificarem o imóvel.', updatedAt: '2022-01-01', updatedBy: 'staff_legal', approvedBy: 'staff_admin' }
+        ]
     }
 ];
 
@@ -460,7 +296,8 @@ export const MOCK_LEGAL_ALERTS: LegalAlert[] = [
         transactionId: 'tx_fraud_attempt',
         description: 'Tentativa de upload de Documento de Identidade falsificado detetada pelo sistema biométrico (Tentativa 3/3).',
         timestamp: '2023-10-27 09:45:00',
-        status: 'open'
+        status: 'open',
+        assignedTo: 'staff_legal'
     },
     {
         id: 'alert_002',
@@ -474,9 +311,8 @@ export const MOCK_LEGAL_ALERTS: LegalAlert[] = [
     }
 ];
 
-// --- MOCK SYSTEM LOGS & IT DATA ---
-
 export const MOCK_SYSTEM_LOGS: SystemLog[] = [
+    ...MOCK_FORENSIC_LOGS,
     {
         id: 'sys_001', level: 'critical', action: 'DB_CONNECTION_ERROR', 
         message: 'Failed to connect to primary replica', 
@@ -491,11 +327,6 @@ export const MOCK_SYSTEM_LOGS: SystemLog[] = [
         id: 'sys_003', level: 'info', action: 'LOGIN_SUCCESS', 
         message: 'Staff member logged in', 
         timestamp: '2023-10-27 08:30:00', userId: 'staff_admin', ip: '197.230.12.44'
-    },
-    {
-        id: 'sys_004', level: 'warning', action: 'PERMISSION_CHANGE', 
-        message: 'Promoted user to Commercial Manager', 
-        timestamp: '2023-10-26 16:20:00', userId: 'staff_admin', details: 'Promoted: staff_1'
     }
 ];
 

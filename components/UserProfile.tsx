@@ -239,7 +239,53 @@ const UserProfile: React.FC<UserProfileProps> = ({
 
   const renderVisits = () => (<div className="space-y-4 animate-fadeIn">{visits.map(visit => (<div key={visit.id} className="bg-white p-4 rounded-lg border border-gray-200">Visit Info</div>))}</div>);
   const renderNotifications = () => (<div className="space-y-3 animate-fadeIn">{notifications.map(n => (<div key={n.id} className="bg-white p-4 rounded-lg border border-gray-200">{n.message}</div>))}</div>);
-  const renderContracts = () => (<div className="space-y-4 animate-fadeIn">{contracts.length===0?<div className="p-4 text-gray-500">Nenhum contrato.</div>:<div className="p-4">Contratos List</div>}</div>);
+  
+  const renderContracts = () => (
+    <div className="space-y-4 animate-fadeIn">
+      {contracts.length === 0 ? (
+        <div className="p-8 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
+          <FileSignature className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+          <p>Nenhum contrato ativo ou arquivado.</p>
+        </div>
+      ) : (
+        contracts.map((contract) => (
+          <div key={contract.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all hover:shadow-md">
+            <div>
+              <div className="flex items-center space-x-2 mb-1">
+                <h4 className="font-bold text-gray-900">{contract.propertyTitle}</h4>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  contract.status === 'active' ? 'bg-green-100 text-green-800' :
+                  contract.status === 'pending_signature' ? 'bg-yellow-100 text-yellow-800' :
+                  contract.status === 'terminated' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {contract.status === 'pending_signature' ? 'Pendente' :
+                   contract.status === 'active' ? 'Ativo' :
+                   contract.status === 'terminated' ? 'Rescindido' :
+                   contract.status === 'expired' ? 'Expirado' :
+                   contract.status}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 flex items-center">
+                <span className="capitalize">{contract.type === 'lease' ? 'Arrendamento' : 'Venda'}</span>
+                <span className="mx-2">•</span>
+                <span>{new Date(contract.startDate).toLocaleDateString()}</span>
+              </p>
+            </div>
+
+            <button
+              onClick={() => handleViewContract(contract)}
+              className="flex items-center px-4 py-2 bg-white border border-brand-200 text-brand-600 text-sm font-bold rounded-lg hover:bg-brand-50 transition-colors shadow-sm"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Ver Contrato
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
   const renderDocuments = () => (<div className="space-y-4 animate-fadeIn">{documents.length===0?<div className="p-4 text-gray-500">Nenhum documento.</div>:<div className="p-4">Docs List</div>}</div>);
 
   // Updated Properties Renderer

@@ -6,10 +6,10 @@ export type UserRole =
   | 'legal_rep' 
   // Cargos Internos (Staff)
   | 'admin'              // Administrador (Acesso Total)
-  | 'commercial_manager' // Gestor/Manager (Aprovações, Relatórios)
-  | 'collaborator'       // Colaborador (Cria posts, submete para aprovação)
-  | 'security_manager'   // Gestor de Segurança (Analista de Conformidade)
-  | 'legal_compliance'   // Jurídico e Compliance (Contratos, Risco, Fraude)
+  | 'commercial_manager' // atua como CFO/Financeiro neste contexto
+  | 'collaborator'       // Colaborador (Cobranças)
+  | 'security_manager'   // Gestor de Segurança
+  | 'legal_compliance'   // Jurídico
   | 'it_tech';           // Técnico de TI
 
 export interface User {
@@ -149,7 +149,7 @@ export interface Transaction {
   amount: number;
   currency: 'AOA';
   // Updated statuses for Escrow workflow
-  status: 'pending' | 'completed' | 'failed' | 'escrow_held' | 'released' | 'refunded' | 'suspended_fraud' | 'reconciled';
+  status: 'pending' | 'completed' | 'failed' | 'escrow_held' | 'released' | 'refunded' | 'suspended_fraud' | 'reconciled' | 'suspended_legal' | 'discrepancy';
   date: string;
   userId: string;
   userName?: string; // Added for display convenience
@@ -158,6 +158,41 @@ export interface Transaction {
   reference?: string; // Multicaixa Ref
   invoiceUrl?: string;
   proofUrl?: string; // URL to payment proof image
+  
+  // Finance Specific
+  vtt?: number; // Valor Total Transação (Base for 2.5%)
+  feeCalculated?: number; // 2.5% of VTT
+  gatewayId?: string; // Transaction ID from MCX/Gateway
+  reconciledAt?: string;
+  reconciledBy?: string;
+}
+
+export interface Invoice {
+    id: string;
+    type: 'proforma' | 'tax_invoice'; // Proforma or Fatura Definitiva
+    contractId: string;
+    userId: string;
+    userName: string;
+    amount: number;
+    description: string;
+    dueDate: string;
+    status: 'draft' | 'issued' | 'paid' | 'overdue' | 'cancelled';
+    fiscalHash?: string; // Hash for Tax Authority
+    issuedAt: string;
+}
+
+export interface FinancialMetric {
+    totalRevenue: number;
+    totalVTT: number;
+    pendingCollections: number;
+    overdueAmount: number;
+    gatewayBalance: number;
+}
+
+export interface DebtAging {
+    range: '0-7 days' | '8-15 days' | '15+ days';
+    count: number;
+    totalValue: number;
 }
 
 export interface Contract {
@@ -169,7 +204,9 @@ export interface Contract {
   ownerId: string;
   ownerName: string;
   type: 'lease' | 'sale';
-  status: 'draft' | 'pending_signature' | 'active' | 'terminated' | 'expired'; // Added pending_signature
+  // CLM Lifecycle Statuses
+  status: 'draft' | 'pending_signature' | 'active' | 'expiring' | 'terminated' | 'expired' | 'breach'; 
+  templateVersion?: string; // e.g. "1.2"
   startDate: string;
   endDate?: string;
   value: number;
@@ -216,6 +253,8 @@ export interface SystemLog {
   statusCode?: number; // e.g., 500, 403
   stackTrace?: string; // Limited stack trace for errors
   details?: string;
+  hash?: string; // Forensic hash
+  userAgent?: string;
 }
 
 export interface ServiceHealth {
@@ -302,15 +341,25 @@ export interface AuditLog {
 }
 
 // --- NEW: LEGAL MODULE TYPES ---
+export interface ClauseVersion {
+    version: string;
+    content: string;
+    updatedAt: string;
+    updatedBy: string;
+    approvedBy?: string;
+    changeNote?: string;
+}
+
 export interface LegalClause {
   id: string;
   category: 'lease' | 'sale';
   title: string;
-  content: string;
+  content: string; // Current active content
   version: string; // e.g., "1.0", "1.1"
   lastUpdated: string;
   status: 'draft' | 'approved' | 'deprecated';
   approvedBy?: string;
+  history?: ClauseVersion[]; // History of changes
 }
 
 export interface LegalAlert {
@@ -323,6 +372,14 @@ export interface LegalAlert {
   description: string;
   timestamp: string;
   status: 'open' | 'investigating' | 'resolved' | 'suspended_transaction';
+  assignedTo?: string; // Staff ID
+}
+
+export interface RiskMetric {
+    fraudAttempts: number;
+    activeDisputes: number;
+    pendingVerifications: number;
+    totalEscrowValue: number;
 }
 
 // --- NEW: FEEDBACK ---

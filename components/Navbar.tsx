@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { User, PlusCircle, MessageSquare, Menu, X, Settings, LayoutDashboard, BookOpen, Info, Activity, ShieldAlert } from 'lucide-react';
 import { User as UserType } from '../types';
@@ -55,14 +56,14 @@ const Navbar: React.FC<NavbarProps> = ({ user, onNavigate, onLoginClick, onLogou
                   <span>Explorar</span>
                 </button>
 
-                <button onClick={() => onNavigate('about')} className={navItemClass('about')}>
-                  <Info className="h-4 w-4" />
-                  <span>Sobre Nós</span>
-                </button>
-
                 <button onClick={() => onNavigate('blog')} className={navItemClass('blog')}>
                   <BookOpen className="h-4 w-4" />
                   <span>Blog</span>
+                </button>
+
+                <button onClick={() => onNavigate('about')} className={navItemClass('about')}>
+                  <Info className="h-4 w-4" />
+                  <span>Sobre Nós</span>
                 </button>
                 
                 {canListProperties && (
@@ -169,11 +170,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onNavigate, onLoginClick, onLogou
                  <button onClick={() => {onNavigate('home'); setIsMenuOpen(false)}} className={`w-full text-left ${navItemClass('home')}`}>
                   Explorar
                 </button>
-                 <button onClick={() => {onNavigate('about'); setIsMenuOpen(false)}} className={`w-full text-left ${navItemClass('about')}`}>
-                  Sobre Nós
-                </button>
                  <button onClick={() => {onNavigate('blog'); setIsMenuOpen(false)}} className={`w-full text-left ${navItemClass('blog')}`}>
                   Blog
+                </button>
+                 <button onClick={() => {onNavigate('about'); setIsMenuOpen(false)}} className={`w-full text-left ${navItemClass('about')}`}>
+                  Sobre Nós
                 </button>
                 {canListProperties && (
                   <button onClick={() => {onNavigate('add-property'); setIsMenuOpen(false)}} className={`w-full text-left ${navItemClass('add-property')}`}>
